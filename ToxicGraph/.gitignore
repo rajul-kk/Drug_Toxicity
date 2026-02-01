@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Data
+data/
+raw/
+processed/
+
+# Models
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.pkl
+*.onnx
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.gif
+
+# Config
+# config.yaml # Often committed, but sometimes secret. Keeping it unless specified.

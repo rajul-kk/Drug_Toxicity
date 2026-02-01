@@ -1,0 +1,9 @@
+dataset:
+  root: 'data'
+  name: 'tox21'
+model:
+  hidden_channels: 64
+training:
+  batch_size: 64
+  learning_rate: 0.001
+  epochs: 20
