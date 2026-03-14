@@ -2,7 +2,7 @@ dataset:
   root: 'data'
   name: 'tox21'
 model:
-  hidden_channels: 64
+  hidden_channels: 128
 training:
   batch_size: 64
   learning_rate: 0.001
