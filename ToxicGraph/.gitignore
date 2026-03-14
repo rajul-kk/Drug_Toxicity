@@ -7,8 +7,8 @@ __pycache__/
 data/
 raw/
 processed/
-.txt
-.csv
+*.txt
+*.csv
 
 # Models
 *.pth
