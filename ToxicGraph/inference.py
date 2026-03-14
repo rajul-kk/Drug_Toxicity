@@ -14,12 +14,8 @@ def predict(smiles_list):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
-    # Need to know input dimensions used during training.
-    # In a real pipeline, these would be saved. 
-    # For this demo, we can re-instantiate a dummy dataset or assume hardcoded 21 based on featurizer.
-    # Let's verify: featurizer.py generates consistent dim.
-    # atom (9) + degree (6) + hybrid (5) + aromatic (1) = 21.
-    num_node_features = 21 
+    # atom (10) + degree (7) + hybrid (6) + aromatic (1) = 24.
+    num_node_features = 24 
     
     # Num tasks (classes) also needs to be known. Tox21=12.
     if config['dataset']['name'] == 'tox21':
@@ -64,11 +60,16 @@ def predict(smiles_list):
 if __name__ == '__main__':
     # Test with some example SMILES
     test_smiles = [
-        'CCO', # Ethanol
-        'C1=CC=CC=C1', # Benzene
-        'CC(=O)OC1=CC=CC=C1C(=O)O' # Aspirin
+        # Existing
+        'CCO', 
+        'C1=CC=CC=C1',
+        'CC(=O)OC1=CC=CC=C1C(=O)O',
+        
+        # New examples
+        'CC(=O)Nc1ccc(O)cc1',             # Paracetamol
+        'Cn1cnc2c1c(=O)n(C)c(=O)n2C',     # Caffeine
+        'Clc1ccc(cc1)C(c2ccc(Cl)cc2)C(Cl)(Cl)Cl' # DDT
     ]
-    
     preds = predict(test_smiles)
     for s, p in zip(test_smiles, preds):
         print(f"SMILES: {s}")
