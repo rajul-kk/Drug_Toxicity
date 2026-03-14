@@ -31,9 +31,12 @@ def train():
     val_dataset = dataset[train_size:train_size+val_size]
     test_dataset = dataset[train_size+val_size:]
 
-    train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'], shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'], shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=config['training']['batch_size'], shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'], shuffle=True,
+                               num_workers=4, persistent_workers=True, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'], shuffle=False,
+                             num_workers=4, persistent_workers=True, pin_memory=True)
+    test_loader = DataLoader(test_dataset, batch_size=config['training']['batch_size'], shuffle=False,
+                              num_workers=4, persistent_workers=True, pin_memory=True)
 
     # Model
     # Determine input dim from first data object
@@ -50,14 +53,18 @@ def train():
     model = GNN(num_node_features=num_node_features, 
                 hidden_channels=config['model']['hidden_channels'], 
                 num_classes=num_tasks).to(device)
-    
+
     # Load existing model if available
     import os
     if os.path.exists('model.pth'):
         print("Loading existing model from model.pth...")
         model.load_state_dict(torch.load('model.pth', map_location=device))
-    
+
+    # Compile model for faster CPU/GPU kernel execution (PyTorch >= 2.0)
+    model = torch.compile(model)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate'])
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3, factor=0.5)
     criterion = nn.BCEWithLogitsLoss()
 
     print("Starting training...")
@@ -111,7 +118,9 @@ def train():
         
         val_auc = np.mean(roc_scores) if roc_scores else 0
 
-        print(f'Epoch: {epoch:03d}, Avg Loss: {total_loss / len(train_loader):.4f}, Val AUC: {val_auc:.4f}')
+        scheduler.step(val_auc)
+        current_lr = optimizer.param_groups[0]['lr']
+        print(f'Epoch: {epoch:03d}, Avg Loss: {total_loss / len(train_loader):.4f}, Val AUC: {val_auc:.4f}, LR: {current_lr:.6f}')
 
     # Save model
     torch.save(model.state_dict(), 'model.pth')
