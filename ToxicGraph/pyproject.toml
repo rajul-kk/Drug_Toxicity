@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "toxicgraph"
+version = "0.1.0"
+description = "GNN-based molecular toxicity prediction using the Tox21 benchmark"
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0",
+    "torch-geometric>=2.5",
+    "rdkit",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "tqdm",
+    "pyyaml",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

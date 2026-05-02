@@ -1,8 +1,8 @@
-torch
-torch_geometric
-rdkit
-pandas
-numpy
-scikit-learn
-tqdm
-pyyaml
+torch==2.10.0
+torch-geometric==2.7.0
+rdkit==2022.09.5
+numpy==2.2.2
+pandas==2.2.3
+scikit-learn==1.7.2
+tqdm==4.67.1
+pyyaml==6.0.2
