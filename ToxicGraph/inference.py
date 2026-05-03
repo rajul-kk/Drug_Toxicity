@@ -4,6 +4,7 @@ import yaml
 import torch
 from src.models import GNN, EnsembleGNN
 from src.featurizer import smiles_to_graph
+from src.calibration import mc_sample
 
 TOX21_TASKS = [
     'NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase',
@@ -35,7 +36,12 @@ def load_model(config, device):
     return EnsembleGNN(models) if len(models) > 1 else models[0]
 
 
-def predict(smiles_list):
+def predict(smiles_list, n_mc=30):
+    """
+    Returns (means, stds, task_names).
+    Uses MC Dropout (n_mc forward passes) for per-prediction uncertainty.
+    Applies temperature calibration if temperature.pt is present.
+    """
     with open('config.yaml') as f:
         config = yaml.safe_load(f)
 
@@ -43,19 +49,26 @@ def predict(smiles_list):
     model = load_model(config, device)
     task_names = TOX21_TASKS if config['dataset']['name'] == 'tox21' else None
 
-    predictions = []
-    with torch.no_grad():
-        for smiles in smiles_list:
-            data = smiles_to_graph(smiles)
-            if data is None:
-                predictions.append(None)
-                continue
-            data.batch = torch.zeros(data.x.shape[0], dtype=torch.long)
-            data = data.to(device)
-            probs = torch.sigmoid(model(data)).cpu().numpy().flatten()
-            predictions.append(probs)
+    temperature = 1.0
+    if os.path.exists('temperature.pt'):
+        temperature = float(torch.load('temperature.pt', map_location='cpu'))
 
-    return predictions, task_names
+    means, stds = [], []
+    for smiles in smiles_list:
+        data = smiles_to_graph(smiles)
+        if data is None:
+            means.append(None)
+            stds.append(None)
+            continue
+        data.batch = torch.zeros(data.x.shape[0], dtype=torch.long)
+        data = data.to(device)
+        mean_logits, std_logits = mc_sample(model, data, n_samples=n_mc)
+        mean_probs = torch.sigmoid(mean_logits / temperature).cpu().numpy().flatten()
+        std_probs = (std_logits / temperature).cpu().numpy().flatten()
+        means.append(mean_probs)
+        stds.append(std_probs)
+
+    return means, stds, task_names
 
 
 if __name__ == '__main__':
@@ -68,13 +81,15 @@ if __name__ == '__main__':
         'Clc1ccc(cc1)C(c2ccc(Cl)cc2)C(Cl)(Cl)Cl',      # DDT
     ]
 
-    preds, task_names = predict(test_smiles)
-    header = f"{'SMILES':<45}" + "".join(f"{t:>12}" for t in task_names)
+    means, stds, task_names = predict(test_smiles)
+    col_w = 18
+    header = f"{'SMILES':<45}" + "".join(f"{t:>{col_w}}" for t in task_names)
     print(header)
     print('-' * len(header))
-    for smi, p in zip(test_smiles, preds):
-        if p is None:
+    for smi, m, s in zip(test_smiles, means, stds):
+        if m is None:
             print(f"{smi:<45}  (invalid SMILES)")
         else:
-            row = f"{smi:<45}" + "".join(f"{v:>12.3f}" for v in p)
-            print(row)
+            # format each task as "mean±std"
+            cols = "".join(f"{f'{v:.3f}±{u:.3f}':>{col_w}}" for v, u in zip(m, s))
+            print(f"{smi:<45}{cols}")
