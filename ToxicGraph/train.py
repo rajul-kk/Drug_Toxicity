@@ -10,7 +10,7 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 from tqdm import tqdm
 
 from src.dataset import ToxicDataset
-from src.models import GNN, EnsembleGNN
+from src.models import GNN, DMPNN, EnsembleGNN
 from src.splitter import scaffold_split
 from src.calibration import fit_temperature, compute_ece, compute_brier
 
@@ -157,6 +157,16 @@ def train():
     num_tasks = dataset[0].y.shape[1] if dataset[0].y.dim() > 1 else 1
     task_names = TOX21_TASKS if config['dataset']['name'] == 'tox21' else None
     ensemble_size = config['model'].get('ensemble_size', 3)
+    hidden = config['model']['hidden_channels']
+    model_type = config['model'].get('type', 'gnn')
+    depth = config['model'].get('depth', 4)
+
+    def build_model():
+        if model_type == 'dmpnn':
+            return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth).to(device)
+        return GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim).to(device)
+
+    print(f"Model: {model_type.upper()}  hidden={hidden}  depth/layers={depth}  ensemble={ensemble_size}")
 
     for run_idx in range(ensemble_size):
         print(f"\n{'=' * 55}")
@@ -164,12 +174,7 @@ def train():
         print(f"{'=' * 55}")
         torch.manual_seed(run_idx)
 
-        model = GNN(
-            num_node_features=num_node_features,
-            hidden_channels=config['model']['hidden_channels'],
-            num_classes=num_tasks,
-            edge_dim=edge_dim,
-        ).to(device)
+        model = build_model()
 
         save_path = f'model_{run_idx}.pth'
         if os.path.exists(save_path):
@@ -184,7 +189,7 @@ def train():
 
         model = train_single(model, train_loader, val_loader, num_tasks, device, config, run_idx)
 
-        # Save via state_dict so it's compatible with uncompiled GNN at load time
+        # Save via state_dict so it's compatible with uncompiled model at load time
         state = model._orig_mod.state_dict() if hasattr(model, '_orig_mod') else model.state_dict()
         torch.save(state, save_path)
         print(f"Saved {save_path}")
@@ -192,7 +197,7 @@ def train():
     # Build ensemble from saved weights
     ensemble_models = []
     for run_idx in range(ensemble_size):
-        m = GNN(num_node_features, config['model']['hidden_channels'], num_tasks, edge_dim=edge_dim).to(device)
+        m = build_model()
         m.load_state_dict(torch.load(f'model_{run_idx}.pth', map_location=device))
         ensemble_models.append(m)
     ensemble = EnsembleGNN(ensemble_models)
