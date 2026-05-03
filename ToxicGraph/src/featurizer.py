@@ -1,7 +1,9 @@
 
+import numpy as np
 import torch
 from torch_geometric.data import Data
 from rdkit import Chem
+from rdkit.Chem import AllChem
 
 
 def one_hot_encoding(value, choices):
@@ -31,7 +33,7 @@ def get_atom_features(atom):
         Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW,
         Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW,
     ])
-    return torch.tensor(features, dtype=torch.float)  # 41 dims total
+    return torch.tensor(features, dtype=torch.float)  # 41 dims
 
 
 def get_bond_features(bond):
@@ -44,7 +46,57 @@ def get_bond_features(bond):
     ])
     features += [int(bond.GetIsConjugated())]                                               # 1
     features += [int(bond.IsInRing())]                                                      # 1
-    return torch.tensor(features, dtype=torch.float)  # 7 dims total
+    return torch.tensor(features, dtype=torch.float)  # 7 dims
+
+
+def _generate_conformer(mol):
+    """
+    Generate a 3D conformer for heavy atoms.
+    Returns an (N, 3) numpy array or None if embedding fails.
+    Adds hydrogens for better geometry then strips them back out.
+    """
+    try:
+        mol_h = Chem.AddHs(mol)
+        if AllChem.EmbedMolecule(mol_h, AllChem.ETKDGv3()) != 0:
+            return None
+        AllChem.MMFFOptimizeMolecule(mol_h)
+        conf = mol_h.GetConformer()
+        # Heavy atoms keep their original indices 0..n-1 after AddHs
+        n = mol.GetNumAtoms()
+        return np.array([list(conf.GetAtomPosition(i)) for i in range(n)], dtype=np.float32)
+    except Exception:
+        return None
+
+
+def _compute_angle_features(mol, pos):
+    """
+    Per-atom bond-angle statistics (mean, std) normalised by π.
+    Returns a (N, 2) tensor. Zero-filled when pos is None or atom has < 2 neighbours.
+    These are SE(3)-invariant: they don't change under rotation or translation.
+    """
+    feats = []
+    for atom in mol.GetAtoms():
+        j = atom.GetIdx()
+        nbrs = [n.GetIdx() for n in atom.GetNeighbors()]
+        if pos is None or len(nbrs) < 2:
+            feats.append([0.0, 0.0])
+            continue
+        angles = []
+        for a in range(len(nbrs)):
+            for b in range(a + 1, len(nbrs)):
+                v1 = pos[nbrs[a]] - pos[j]
+                v2 = pos[nbrs[b]] - pos[j]
+                n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
+                if n1 < 1e-8 or n2 < 1e-8:
+                    continue
+                cos_a = float(np.clip(np.dot(v1, v2) / (n1 * n2), -1.0, 1.0))
+                angles.append(np.arccos(cos_a))
+        if angles:
+            feats.append([float(np.mean(angles)) / np.pi,
+                          float(np.std(angles)) / np.pi])
+        else:
+            feats.append([0.0, 0.0])
+    return torch.tensor(feats, dtype=torch.float)  # (N, 2)
 
 
 def smiles_to_graph(smiles):
@@ -52,8 +104,10 @@ def smiles_to_graph(smiles):
     if mol is None:
         return None
 
+    # ── base node features (41 dims) ──────────────────────────────────────────
     x = torch.stack([get_atom_features(atom) for atom in mol.GetAtoms()])
 
+    # ── base edge features (7 dims) ───────────────────────────────────────────
     edge_indices, edge_features = [], []
     for bond in mol.GetBonds():
         i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
@@ -63,9 +117,26 @@ def smiles_to_graph(smiles):
 
     if edge_indices:
         edge_index = torch.tensor(edge_indices, dtype=torch.long).t().contiguous()
-        edge_attr = torch.stack(edge_features)
+        edge_attr = torch.stack(edge_features)            # (E, 7)
     else:
         edge_index = torch.empty((2, 0), dtype=torch.long)
-        edge_attr = torch.empty((0, 7), dtype=torch.float)
+        edge_attr = torch.empty((0, 8), dtype=torch.float)  # skip to final dim
+
+    # ── 3D geometry (SE(3)-invariant) ─────────────────────────────────────────
+    pos = _generate_conformer(mol)
+
+    # Distance appended to each edge (1 dim → total 8)
+    if edge_indices:
+        if pos is not None:
+            idx = edge_index.numpy()
+            dists = np.linalg.norm(pos[idx[0]] - pos[idx[1]], axis=1, keepdims=True)
+            dist_feat = torch.tensor(dists, dtype=torch.float)
+        else:
+            dist_feat = torch.zeros(edge_attr.shape[0], 1)
+        edge_attr = torch.cat([edge_attr, dist_feat], dim=1)  # (E, 8)
+
+    # Bond-angle stats appended to each node (2 dims → total 43)
+    angle_feat = _compute_angle_features(mol, pos)        # (N, 2)
+    x = torch.cat([x, angle_feat], dim=1)                 # (N, 43)
 
     return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
