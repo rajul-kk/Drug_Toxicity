@@ -13,7 +13,9 @@ TOX21_TASKS = [
 
 
 def load_model(config, device):
-    num_node_features = smiles_to_graph('C').x.shape[1]
+    dummy = smiles_to_graph('CCO')   # use a molecule with bonds so edge_attr has shape[1]
+    num_node_features = dummy.x.shape[1]
+    edge_dim = dummy.edge_attr.shape[1]
     num_classes = 12 if config['dataset']['name'] == 'tox21' else 1
     hidden = config['model']['hidden_channels']
     ensemble_size = config['model'].get('ensemble_size', 3)
@@ -22,7 +24,7 @@ def load_model(config, device):
     for i in range(ensemble_size):
         path = f'model_{i}.pth'
         if os.path.exists(path):
-            m = GNN(num_node_features, hidden, num_classes).to(device)
+            m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim).to(device)
             m.load_state_dict(torch.load(path, map_location=device))
             m.eval()
             models.append(m)

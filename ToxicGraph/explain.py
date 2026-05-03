@@ -29,14 +29,16 @@ def explain_molecule(smiles, target_task_idx=0, output_dir='explanations'):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    dummy_data = smiles_to_graph('C')
+    dummy_data = smiles_to_graph('CCO')  # molecule with bonds so edge_attr has shape[1]
     num_node_features = dummy_data.x.shape[1]
+    edge_dim = dummy_data.edge_attr.shape[1]
     num_classes = 12 if config['dataset']['name'] == 'tox21' else 1
 
     model = GNN(
         num_node_features=num_node_features,
         hidden_channels=config['model']['hidden_channels'],
         num_classes=num_classes,
+        edge_dim=edge_dim,
     ).to(device)
 
     model_path = 'model_0.pth' if os.path.exists('model_0.pth') else 'model.pth'

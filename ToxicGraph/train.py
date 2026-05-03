@@ -123,6 +123,7 @@ def train():
     test_loader = DataLoader(test_dataset, shuffle=False, **loader_kwargs)
 
     num_node_features = dataset.num_node_features
+    edge_dim = dataset[0].edge_attr.shape[1]
     num_tasks = dataset[0].y.shape[1] if dataset[0].y.dim() > 1 else 1
     task_names = TOX21_TASKS if config['dataset']['name'] == 'tox21' else None
     ensemble_size = config['model'].get('ensemble_size', 3)
@@ -137,6 +138,7 @@ def train():
             num_node_features=num_node_features,
             hidden_channels=config['model']['hidden_channels'],
             num_classes=num_tasks,
+            edge_dim=edge_dim,
         ).to(device)
 
         save_path = f'model_{run_idx}.pth'
@@ -160,7 +162,7 @@ def train():
     # Build ensemble from saved weights
     ensemble_models = []
     for run_idx in range(ensemble_size):
-        m = GNN(num_node_features, config['model']['hidden_channels'], num_tasks).to(device)
+        m = GNN(num_node_features, config['model']['hidden_channels'], num_tasks, edge_dim=edge_dim).to(device)
         m.load_state_dict(torch.load(f'model_{run_idx}.pth', map_location=device))
         ensemble_models.append(m)
     ensemble = EnsembleGNN(ensemble_models)
@@ -168,7 +170,7 @@ def train():
     print("\n=== Ensemble Test Results ===")
     eval_full_metrics(ensemble, test_loader, num_tasks, device, task_names)
 
-    print_scaffold_analysis(ensemble, test_dataset, num_tasks, device, task_names)
+    print_scaffold_analysis(ensemble, test_dataset, num_tasks, device, task_names, min_size=2)
 
 
 if __name__ == '__main__':
