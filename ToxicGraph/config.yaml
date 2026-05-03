@@ -3,7 +3,8 @@ dataset:
   name: 'tox21'
 model:
   hidden_channels: 128
+  ensemble_size: 3
 training:
   batch_size: 64
   learning_rate: 0.001
-  epochs: 20
+  epochs: 100

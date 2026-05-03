@@ -39,10 +39,11 @@ def explain_molecule(smiles, target_task_idx=0, output_dir='explanations'):
         num_classes=num_classes,
     ).to(device)
 
+    model_path = 'model_0.pth' if os.path.exists('model_0.pth') else 'model.pth'
     try:
-        model.load_state_dict(torch.load('model.pth', map_location=device))
+        model.load_state_dict(torch.load(model_path, map_location=device))
     except FileNotFoundError:
-        print("model.pth not found. Please run train.py first.")
+        print("No model file found. Please run train.py first.")
         return
 
     model.eval()

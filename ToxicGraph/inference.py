@@ -1,76 +1,78 @@
 
+import os
 import yaml
 import torch
-from src.models import GNN
+from src.models import GNN, EnsembleGNN
 from src.featurizer import smiles_to_graph
-# Minimal dataset import to get simple logic if needed, but we can infer dims from saved implementation if we saved metadata 
-# For now, we hardcode or load config. Since we trained with specific dims, we need to know them.
-# We will assume config matches training.
+
+TOX21_TASKS = [
+    'NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase',
+    'NR-ER', 'NR-ER-LBD', 'NR-PPAR-gamma',
+    'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53',
+]
+
+
+def load_model(config, device):
+    num_node_features = smiles_to_graph('C').x.shape[1]
+    num_classes = 12 if config['dataset']['name'] == 'tox21' else 1
+    hidden = config['model']['hidden_channels']
+    ensemble_size = config['model'].get('ensemble_size', 3)
+
+    models = []
+    for i in range(ensemble_size):
+        path = f'model_{i}.pth'
+        if os.path.exists(path):
+            m = GNN(num_node_features, hidden, num_classes).to(device)
+            m.load_state_dict(torch.load(path, map_location=device))
+            m.eval()
+            models.append(m)
+
+    if not models:
+        raise FileNotFoundError("No model files found (model_0.pth, …). Run train.py first.")
+
+    return EnsembleGNN(models) if len(models) > 1 else models[0]
+
 
 def predict(smiles_list):
-    # Load config
-    with open('config.yaml', 'r') as f:
+    with open('config.yaml') as f:
         config = yaml.safe_load(f)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
-    # atom (10) + degree (7) + hybrid (6) + aromatic (1) = 24.
-    num_node_features = 24 
-    
-    # Num tasks (classes) also needs to be known. Tox21=12.
-    if config['dataset']['name'] == 'tox21':
-        num_classes = 12
-    elif config['dataset']['name'] == 'hiv':
-        num_classes = 1
-    else:
-        num_classes = 12 # Default
-        
-    model = GNN(num_node_features=num_node_features, 
-                hidden_channels=config['model']['hidden_channels'], 
-                num_classes=num_classes).to(device)
-    
-    try:
-        model.load_state_dict(torch.load('model.pth', map_location=device))
-    except FileNotFoundError:
-        print("Model file not found. Please run train.py first.")
-        return
+    model = load_model(config, device)
+    task_names = TOX21_TASKS if config['dataset']['name'] == 'tox21' else None
 
-    model.eval()
-    
     predictions = []
-    print(f"Predicting for {len(smiles_list)} molecules...")
-    
     with torch.no_grad():
         for smiles in smiles_list:
             data = smiles_to_graph(smiles)
             if data is None:
                 predictions.append(None)
                 continue
-                
-            # Add batch dimension
             data.batch = torch.zeros(data.x.shape[0], dtype=torch.long)
             data = data.to(device)
-            
-            out = model(data)
-            probs = torch.sigmoid(out)
-            predictions.append(probs.cpu().numpy().flatten())
-            
-    return predictions
+            probs = torch.sigmoid(model(data)).cpu().numpy().flatten()
+            predictions.append(probs)
+
+    return predictions, task_names
+
 
 if __name__ == '__main__':
-    # Test with some example SMILES
     test_smiles = [
-        # Existing
-        'CCO', 
-        'C1=CC=CC=C1',
-        'CC(=O)OC1=CC=CC=C1C(=O)O',
-        
-        # New examples
-        'CC(=O)Nc1ccc(O)cc1',             # Paracetamol
-        'Cn1cnc2c1c(=O)n(C)c(=O)n2C',     # Caffeine
-        'Clc1ccc(cc1)C(c2ccc(Cl)cc2)C(Cl)(Cl)Cl' # DDT
+        'CCO',                                          # Ethanol
+        'C1=CC=CC=C1',                                  # Benzene
+        'CC(=O)OC1=CC=CC=C1C(=O)O',                    # Aspirin
+        'CC(=O)Nc1ccc(O)cc1',                           # Paracetamol
+        'Cn1cnc2c1c(=O)n(C)c(=O)n2C',                  # Caffeine
+        'Clc1ccc(cc1)C(c2ccc(Cl)cc2)C(Cl)(Cl)Cl',      # DDT
     ]
-    preds = predict(test_smiles)
-    for s, p in zip(test_smiles, preds):
-        print(f"SMILES: {s}")
-        print(f"Prediction: {p}")
+
+    preds, task_names = predict(test_smiles)
+    header = f"{'SMILES':<45}" + "".join(f"{t:>12}" for t in task_names)
+    print(header)
+    print('-' * len(header))
+    for smi, p in zip(test_smiles, preds):
+        if p is None:
+            print(f"{smi:<45}  (invalid SMILES)")
+        else:
+            row = f"{smi:<45}" + "".join(f"{v:>12.3f}" for v in p)
+            print(row)
