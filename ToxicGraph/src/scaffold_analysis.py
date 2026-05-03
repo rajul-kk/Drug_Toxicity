@@ -1,4 +1,14 @@
+"""
+Scaffold-level AUC analysis.
 
+Use this after a RANDOM split, not a scaffold split. With scaffold split the
+test set is intentionally sparse and novel — most scaffolds have 1–2 molecules,
+making per-scaffold AUC uncomputable (requires both positive and negative labels).
+
+Example:
+    from src.scaffold_analysis import print_scaffold_analysis
+    print_scaffold_analysis(ensemble, test_dataset, num_tasks, device, task_names)
+"""
 import torch
 import numpy as np
 from rdkit import Chem
@@ -7,7 +17,7 @@ from torch_geometric.loader import DataLoader
 from sklearn.metrics import roc_auc_score
 
 
-def print_scaffold_analysis(model, test_dataset, num_tasks, device, task_names=None, min_size=5):
+def print_scaffold_analysis(model, test_dataset, num_tasks, device, task_names=None, min_size=2):
     task_names = task_names or [str(i) for i in range(num_tasks)]
 
     scaffolds = {}

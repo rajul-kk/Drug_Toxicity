@@ -2,8 +2,10 @@
 import numpy as np
 import torch
 from torch_geometric.data import Data
-from rdkit import Chem
+from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem
+
+RDLogger.DisableLog('rdApp.*')  # suppress UFFTYPER / sanitisation warnings
 
 
 def one_hot_encoding(value, choices):

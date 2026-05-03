@@ -11,7 +11,6 @@ from tqdm import tqdm
 from src.dataset import ToxicDataset
 from src.models import GNN, EnsembleGNN
 from src.splitter import scaffold_split
-from src.scaffold_analysis import print_scaffold_analysis
 
 TOX21_TASKS = [
     'NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase',
@@ -169,8 +168,6 @@ def train():
 
     print("\n=== Ensemble Test Results ===")
     eval_full_metrics(ensemble, test_loader, num_tasks, device, task_names)
-
-    print_scaffold_analysis(ensemble, test_dataset, num_tasks, device, task_names, min_size=2)
 
 
 if __name__ == '__main__':
