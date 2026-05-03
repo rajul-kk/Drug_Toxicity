@@ -23,7 +23,7 @@ TOX21_TASKS = [
 def smiles_to_fp(smiles, radius=2, nbits=2048):
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
-        return None
+        return np.zeros(nbits, dtype=np.float32)
     return np.array(AllChem.GetMorganFingerprintAsBitVect(mol, radius, nBits=nbits), dtype=np.float32)
 
 

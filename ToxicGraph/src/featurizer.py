@@ -35,7 +35,10 @@ def get_atom_features(atom):
         Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW,
         Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW,
     ])
-    return torch.tensor(features, dtype=torch.float)  # 41 dims
+    # Gasteiger partial charge: electrostatic proxy, relevant for toxicity mechanisms
+    charge = atom.GetDoubleProp('_GasteigerCharge') if atom.HasProp('_GasteigerCharge') else 0.0
+    features += [float(np.clip(charge, -1.0, 1.0))]                                        # 1
+    return torch.tensor(features, dtype=torch.float)  # 42 dims
 
 
 def get_bond_features(bond):
@@ -106,7 +109,9 @@ def smiles_to_graph(smiles):
     if mol is None:
         return None
 
-    # ── base node features (41 dims) ──────────────────────────────────────────
+    AllChem.ComputeGasteigerCharges(mol)
+
+    # ── base node features (42 dims) ──────────────────────────────────────────
     x = torch.stack([get_atom_features(atom) for atom in mol.GetAtoms()])
 
     # ── base edge features (7 dims) ───────────────────────────────────────────
@@ -137,8 +142,8 @@ def smiles_to_graph(smiles):
             dist_feat = torch.zeros(edge_attr.shape[0], 1)
         edge_attr = torch.cat([edge_attr, dist_feat], dim=1)  # (E, 8)
 
-    # Bond-angle stats appended to each node (2 dims → total 43)
+    # Bond-angle stats appended to each node (2 dims → total 44)
     angle_feat = _compute_angle_features(mol, pos)        # (N, 2)
-    x = torch.cat([x, angle_feat], dim=1)                 # (N, 43)
+    x = torch.cat([x, angle_feat], dim=1)                 # (N, 44)
 
     return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)

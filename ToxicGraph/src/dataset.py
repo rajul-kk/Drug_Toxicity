@@ -23,8 +23,8 @@ class ToxicDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        # v3: 43-dim node features (+ bond-angle stats), 8-dim edge features (+ distance)
-        return [f'{self.name}_v3.pt']
+        # v4: 44-dim node features (+ Gasteiger charge), 8-dim edge features (+ distance)
+        return [f'{self.name}_v4.pt']
 
     def download(self):
         if self.name == 'tox21':

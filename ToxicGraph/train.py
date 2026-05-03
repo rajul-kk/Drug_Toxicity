@@ -3,6 +3,7 @@ import os
 import yaml
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 from torch_geometric.loader import DataLoader
 from sklearn.metrics import roc_auc_score, average_precision_score
@@ -11,6 +12,7 @@ from tqdm import tqdm
 from src.dataset import ToxicDataset
 from src.models import GNN, EnsembleGNN
 from src.splitter import scaffold_split
+from src.calibration import fit_temperature, compute_ece, compute_brier
 
 TOX21_TASKS = [
     'NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase',
@@ -43,38 +45,56 @@ def eval_auc(model, loader, num_tasks, device):
     return float(np.mean(scores)) if scores else 0.0
 
 
-def eval_full_metrics(model, loader, num_tasks, device, task_names=None):
-    y_true, y_pred = collect_preds(model, loader, device)
+def eval_full_metrics(model, loader, num_tasks, device, task_names=None, temperature=1.0):
+    y_true, y_logits = collect_preds(model, loader, device)
+    y_probs = torch.sigmoid(y_logits / temperature)
     task_names = task_names or [str(i) for i in range(num_tasks)]
 
-    aucs, auprcs = [], []
+    aucs, auprcs, briers, eces = [], [], [], []
     rows = []
     for i in range(num_tasks):
         mask = y_true[:, i] > -0.5
         if mask.sum() == 0:
             continue
-        yt, yp = y_true[mask, i].numpy(), y_pred[mask, i].numpy()
+        yt = y_true[mask, i].numpy()
+        yp_logit = y_logits[mask, i].numpy()
+        yp_prob = y_probs[mask, i].numpy()
         try:
-            auc = roc_auc_score(yt, yp)
-            auprc = average_precision_score(yt, yp)
+            auc = roc_auc_score(yt, yp_logit)
+            auprc = average_precision_score(yt, yp_logit)
+            brier = compute_brier(yp_prob, yt)
+            ece = compute_ece(yp_prob, yt)
             aucs.append(auc)
             auprcs.append(auprc)
-            rows.append((task_names[i], auc, auprc))
+            briers.append(brier)
+            eces.append(ece)
+            rows.append((task_names[i], auc, auprc, brier, ece))
         except ValueError:
             pass
 
-    print(f"\n{'Task':<20} {'AUC':>6}  {'AUPRC':>6}")
-    print('-' * 36)
-    for name, auc, auprc in rows:
-        print(f"{name:<20} {auc:.4f}  {auprc:.4f}")
-    print('-' * 36)
-    print(f"{'Mean':<20} {np.mean(aucs):.4f}  {np.mean(auprcs):.4f}\n")
+    print(f"\n{'Task':<20} {'AUC':>6}  {'AUPRC':>6}  {'Brier':>6}  {'ECE':>6}")
+    print('-' * 54)
+    for name, auc, auprc, brier, ece in rows:
+        print(f"{name:<20} {auc:.4f}  {auprc:.4f}  {brier:.4f}  {ece:.4f}")
+    print('-' * 54)
+    print(f"{'Mean':<20} {np.mean(aucs):.4f}  {np.mean(auprcs):.4f}  {np.mean(briers):.4f}  {np.mean(eces):.4f}\n")
+
+
+def focal_loss(logits, targets, gamma=2.0):
+    """Binary focal loss: down-weights easy negatives to address class imbalance."""
+    bce = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')
+    p_t = torch.exp(-bce)
+    return ((1 - p_t) ** gamma * bce).mean()
 
 
 def train_single(model, train_loader, val_loader, num_tasks, device, config, run_idx):
-    criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate'])
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3, factor=0.5)
+    patience = config['training'].get('early_stopping_patience', 10)
+
+    best_val_auc = 0.0
+    best_state = None
+    epochs_no_improve = 0
 
     for epoch in range(1, config['training']['epochs'] + 1):
         model.train()
@@ -86,7 +106,7 @@ def train_single(model, train_loader, val_loader, num_tasks, device, config, run
             out = model(data)
             y = data.y
             is_labeled = y > -0.5
-            loss = criterion(out[is_labeled], y[is_labeled])
+            loss = focal_loss(out[is_labeled], y[is_labeled])
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
@@ -97,6 +117,17 @@ def train_single(model, train_loader, val_loader, num_tasks, device, config, run
         lr = optimizer.param_groups[0]['lr']
         print(f'[{run_idx + 1}] Epoch {epoch:03d}  Loss {total_loss / len(train_loader):.4f}  Val AUC {val_auc:.4f}  LR {lr:.6f}')
 
+        if val_auc > best_val_auc:
+            best_val_auc = val_auc
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+            if epochs_no_improve >= patience:
+                print(f'[{run_idx + 1}] Early stop at epoch {epoch} (best val AUC {best_val_auc:.4f})')
+                break
+
+    model.load_state_dict(best_state)
     return model
 
 
@@ -168,6 +199,12 @@ def train():
 
     print("\n=== Ensemble Test Results ===")
     eval_full_metrics(ensemble, test_loader, num_tasks, device, task_names)
+
+    print("Fitting temperature scaler on validation set...")
+    temperature = fit_temperature(ensemble, val_loader, device)
+    torch.save(temperature, 'temperature.pt')
+    print(f"\n=== Calibrated Test Results (T={temperature:.4f}) ===")
+    eval_full_metrics(ensemble, test_loader, num_tasks, device, task_names, temperature=temperature)
 
 
 if __name__ == '__main__':
