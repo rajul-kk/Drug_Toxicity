@@ -37,7 +37,8 @@ def get_atom_features(atom):
     ])
     # Gasteiger partial charge: electrostatic proxy, relevant for toxicity mechanisms
     charge = atom.GetDoubleProp('_GasteigerCharge') if atom.HasProp('_GasteigerCharge') else 0.0
-    features += [float(np.clip(charge, -1.0, 1.0))]                                        # 1
+    charge = 0.0 if not np.isfinite(charge) else float(np.clip(charge, -1.0, 1.0))
+    features += [charge]                                                                     # 1
     return torch.tensor(features, dtype=torch.float)  # 42 dims
 
 
@@ -135,8 +136,9 @@ def smiles_to_graph(smiles):
     # Distance appended to each edge (1 dim → total 8)
     if edge_indices:
         if pos is not None:
-            idx = edge_index.numpy()
-            dists = np.linalg.norm(pos[idx[0]] - pos[idx[1]], axis=1, keepdims=True)
+            src = edge_index[0].tolist()
+            dst = edge_index[1].tolist()
+            dists = np.linalg.norm(pos[src] - pos[dst], axis=1, keepdims=True)
             dist_feat = torch.tensor(dists, dtype=torch.float)
         else:
             dist_feat = torch.zeros(edge_attr.shape[0], 1)
@@ -145,5 +147,9 @@ def smiles_to_graph(smiles):
     # Bond-angle stats appended to each node (2 dims → total 44)
     angle_feat = _compute_angle_features(mol, pos)        # (N, 2)
     x = torch.cat([x, angle_feat], dim=1)                 # (N, 44)
+
+    # Replace any NaN/inf that slipped through with zeros
+    x = torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
+    edge_attr = torch.nan_to_num(edge_attr, nan=0.0, posinf=0.0, neginf=0.0)
 
     return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)

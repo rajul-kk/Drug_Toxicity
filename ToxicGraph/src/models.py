@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GATv2Conv, Set2Set
-from torch_geometric.utils import scatter
 
 
 class GNN(torch.nn.Module):
@@ -96,20 +95,30 @@ class DMPNN(nn.Module):
         rev_idx = torch.arange(num_edges, device=x.device) ^ 1
 
         h_init = self.W_i(torch.cat([x[src], edge_attr], dim=-1)).relu()
+        if h_init.isnan().any():
+            raise RuntimeError(f'NaN in h_init — x_nan={x.isnan().any().item()} ea_nan={edge_attr.isnan().any().item()}')
         h = h_init
 
-        for _ in range(self.depth):
-            # Sum all incoming edge states per destination node
-            agg = scatter(h, dst, dim=0, dim_size=num_nodes, reduce='sum')
+        for i in range(self.depth):
+            # Sum all incoming edge states per destination node (pure PyTorch, no scatter dep)
+            agg = torch.zeros(num_nodes, h.size(-1), device=h.device, dtype=h.dtype)
+            agg.scatter_add_(0, dst.unsqueeze(-1).expand_as(h), h)
             # For edge (u→v): subtract reverse edge (v→u) to exclude it
             msg = agg[src] - h[rev_idx]
             h = F.relu(h_init + self.W_m(msg))
+            if h.isnan().any():
+                raise RuntimeError(f'NaN in h after step {i} — msg_nan={msg.isnan().any().item()} agg_nan={agg.isnan().any().item()}')
             h = self.dropout_mid(h)
 
-        atom_msg = scatter(h, dst, dim=0, dim_size=num_nodes, reduce='sum')
+        atom_msg = torch.zeros(num_nodes, h.size(-1), device=h.device, dtype=h.dtype)
+        atom_msg.scatter_add_(0, dst.unsqueeze(-1).expand_as(h), h)
         atom_out = self.W_a(torch.cat([x, atom_msg], dim=-1)).relu()
+        if atom_out.isnan().any():
+            raise RuntimeError(f'NaN in atom_out — atom_msg_nan={atom_msg.isnan().any().item()}')
 
         out = self.set2set(atom_out, batch)
+        if out.isnan().any():
+            raise RuntimeError('NaN in set2set_out')
         return self.lin(self.dropout_out(out))
 
 
