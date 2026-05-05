@@ -92,8 +92,8 @@ def train_single(model, train_loader, val_loader, num_tasks, device, config, run
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3, factor=0.5)
     patience = config['training'].get('early_stopping_patience', 10)
 
-    best_val_auc = 0.0
-    best_state = None
+    best_val_auc = -1.0
+    best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
     epochs_no_improve = 0
 
     for epoch in range(1, config['training']['epochs'] + 1):
@@ -108,6 +108,7 @@ def train_single(model, train_loader, val_loader, num_tasks, device, config, run
             is_labeled = y > -0.5
             loss = focal_loss(out[is_labeled], y[is_labeled])
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             optimizer.step()
             total_loss += loss.item()
             pbar.set_postfix({'loss': loss.item()})
@@ -127,7 +128,8 @@ def train_single(model, train_loader, val_loader, num_tasks, device, config, run
                 print(f'[{run_idx + 1}] Early stop at epoch {epoch} (best val AUC {best_val_auc:.4f})')
                 break
 
-    model.load_state_dict(best_state)
+    if best_state is not None:
+        model.load_state_dict(best_state)
     return model
 
 
