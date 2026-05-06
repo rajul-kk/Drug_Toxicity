@@ -100,9 +100,9 @@ ToxicGraph/
 
 Scaffold split, ensemble of 3 models. GNN results after ~60 epochs on CPU.
 
-| Model | Mean AUC | Mean AUPRC |
-|---|---|---|
-| XGBoost (ECFP4) | 0.731 | 0.340 |
-| GNN (GATv2 + Set2Set) | 0.747 | 0.365 |
-| D-MPNN | — | — |
-| Chemprop (reported) | ~0.840 | — |
+| Model | Mean AUC | Mean AUPRC | Brier (cal.) | ECE (cal.) |
+|---|---|---|---|---|
+| XGBoost (ECFP4) | 0.731 | 0.340 | — | — |
+| GNN (GATv2 + Set2Set) | 0.747 | 0.365 | — | — |
+| D-MPNN | 0.772 | 0.368 | 0.077 | 0.035 |
+| Chemprop (reported) | ~0.840 | — | — | — |
