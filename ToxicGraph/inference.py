@@ -2,7 +2,7 @@
 import os
 import yaml
 import torch
-from src.models import GNN, EnsembleGNN
+from src.models import GNN, DMPNN, EnsembleGNN
 from src.featurizer import smiles_to_graph
 from src.calibration import mc_sample
 
@@ -19,13 +19,18 @@ def load_model(config, device):
     edge_dim = dummy.edge_attr.shape[1]
     num_classes = 12 if config['dataset']['name'] == 'tox21' else 1
     hidden = config['model']['hidden_channels']
+    depth = config['model'].get('depth', 4)
+    model_type = config['model'].get('type', 'gnn')
     ensemble_size = config['model'].get('ensemble_size', 3)
 
     models = []
     for i in range(ensemble_size):
         path = f'model_{i}.pth'
         if os.path.exists(path):
-            m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim).to(device)
+            if model_type == 'dmpnn':
+                m = DMPNN(num_node_features, edge_dim, hidden, num_classes, depth=depth).to(device)
+            else:
+                m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim).to(device)
             m.load_state_dict(torch.load(path, map_location=device))
             m.eval()
             models.append(m)
@@ -64,7 +69,7 @@ def predict(smiles_list, n_mc=30):
         data = data.to(device)
         mean_logits, std_logits = mc_sample(model, data, n_samples=n_mc)
         mean_probs = torch.sigmoid(mean_logits / temperature).cpu().numpy().flatten()
-        std_probs = (std_logits / temperature).cpu().numpy().flatten()
+        std_probs = std_logits.cpu().numpy().flatten()
         means.append(mean_probs)
         stds.append(std_probs)
 
