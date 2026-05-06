@@ -3,12 +3,11 @@ dataset:
   name: 'tox21'
 model:
   type: dmpnn       # gnn | dmpnn
-  hidden_channels: 256
+  hidden_channels: 128
   ensemble_size: 3
-  depth: 6           # message passing steps (dmpnn) / conv layers (gnn)
+  depth: 4           # message passing steps (dmpnn) / conv layers (gnn)
 training:
   batch_size: 64
   learning_rate: 0.0003
-  epochs: 120
-  warmup_epochs: 3
-  early_stopping_patience: 15
+  epochs: 100
+  early_stopping_patience: 10

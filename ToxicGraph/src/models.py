@@ -24,7 +24,11 @@ class GNN(torch.nn.Module):
 
         self.set2set = Set2Set(hidden_channels, processing_steps=4)
         self.fp_dim = fp_dim
-        self.lin = nn.Linear(2 * hidden_channels + fp_dim, num_classes)
+        fp_out = hidden_channels if fp_dim > 0 else 0
+        self.fp_encoder = nn.Sequential(
+            nn.Linear(fp_dim, hidden_channels), nn.ReLU(), nn.Dropout(p=0.2)
+        ) if fp_dim > 0 else None
+        self.lin = nn.Linear(2 * hidden_channels + fp_out, num_classes)
 
         # nn.Dropout modules (not F.dropout) so enable_mc_dropout can flip them
         # independently of BatchNorm during MC uncertainty sampling
@@ -51,8 +55,8 @@ class GNN(torch.nn.Module):
 
         x = self.set2set(x, batch)          # (B, 2 * hidden_channels)
         x = self.dropout_out(x)
-        if self.fp_dim > 0 and fp is not None:
-            x = torch.cat([x, fp], dim=-1)
+        if self.fp_encoder is not None and fp is not None:
+            x = torch.cat([x, self.fp_encoder(fp)], dim=-1)
         return self.lin(x)
 
 
@@ -79,7 +83,11 @@ class DMPNN(nn.Module):
         self.set2set = Set2Set(hidden_channels, processing_steps=4)
         self.dropout_mid = nn.Dropout(p=0.2)
         self.dropout_out = nn.Dropout(p=0.5)
-        self.lin = nn.Linear(2 * hidden_channels + fp_dim, num_classes)
+        fp_out = hidden_channels if fp_dim > 0 else 0
+        self.fp_encoder = nn.Sequential(
+            nn.Linear(fp_dim, hidden_channels), nn.ReLU(), nn.Dropout(p=0.2)
+        ) if fp_dim > 0 else None
+        self.lin = nn.Linear(2 * hidden_channels + fp_out, num_classes)
 
     def forward(self, x, edge_index=None, edge_attr=None, batch=None):
         if edge_index is None and hasattr(x, 'x'):
@@ -127,8 +135,8 @@ class DMPNN(nn.Module):
         if out.isnan().any():
             raise RuntimeError('NaN in set2set_out')
         out = self.dropout_out(out)
-        if self.fp_dim > 0 and fp is not None:
-            out = torch.cat([out, fp], dim=-1)
+        if self.fp_encoder is not None and fp is not None:
+            out = torch.cat([out, self.fp_encoder(fp)], dim=-1)
         return self.lin(out)
 
 
