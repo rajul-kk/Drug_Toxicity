@@ -44,17 +44,19 @@ def fit_temperature(model, val_loader, device):
     labels = torch.cat(labels_list)
     mask = labels > -0.5
 
-    temperature = nn.Parameter(torch.ones(1))
-    optimizer = torch.optim.LBFGS([temperature], lr=0.01, max_iter=200)
+    # Optimise log(T) so T = exp(log_T) is always positive
+    log_temperature = nn.Parameter(torch.zeros(1))
+    optimizer = torch.optim.LBFGS([log_temperature], lr=0.1, max_iter=200)
 
     def closure():
         optimizer.zero_grad()
-        loss = F.binary_cross_entropy_with_logits(logits[mask] / temperature, labels[mask])
+        t = torch.exp(log_temperature)
+        loss = F.binary_cross_entropy_with_logits(logits[mask] / t, labels[mask])
         loss.backward()
         return loss
 
     optimizer.step(closure)
-    return float(temperature.item())
+    return float(torch.exp(log_temperature).item())
 
 
 def compute_ece(probs, labels, n_bins=10):
