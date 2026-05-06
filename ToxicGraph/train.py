@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from torch_geometric.loader import DataLoader
+from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 from sklearn.metrics import roc_auc_score, average_precision_score
 from tqdm import tqdm
 
@@ -89,7 +90,11 @@ def focal_loss(logits, targets, gamma=2.0):
 
 def train_single(model, train_loader, val_loader, num_tasks, device, config, run_idx):
     optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate'])
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3, factor=0.5)
+    epochs = config['training']['epochs']
+    warmup_epochs = config['training'].get('warmup_epochs', 3)
+    warmup = LinearLR(optimizer, start_factor=0.1, end_factor=1.0, total_iters=warmup_epochs)
+    cosine = CosineAnnealingLR(optimizer, T_max=max(1, epochs - warmup_epochs), eta_min=1e-6)
+    scheduler = SequentialLR(optimizer, schedulers=[warmup, cosine], milestones=[warmup_epochs])
     patience = config['training'].get('early_stopping_patience', 10)
 
     best_val_auc = -1.0
@@ -114,7 +119,7 @@ def train_single(model, train_loader, val_loader, num_tasks, device, config, run
             pbar.set_postfix({'loss': loss.item()})
 
         val_auc = eval_auc(model, val_loader, num_tasks, device)
-        scheduler.step(val_auc)
+        scheduler.step()
         lr = optimizer.param_groups[0]['lr']
         print(f'[{run_idx + 1}] Epoch {epoch:03d}  Loss {total_loss / len(train_loader):.4f}  Val AUC {val_auc:.4f}  LR {lr:.6f}')
 
@@ -163,10 +168,11 @@ def train():
     model_type = config['model'].get('type', 'gnn')
     depth = config['model'].get('depth', 4)
 
+    fp_dim = 2048
     def build_model():
         if model_type == 'dmpnn':
-            return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth).to(device)
-        return GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim).to(device)
+            return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth, fp_dim=fp_dim).to(device)
+        return GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim, fp_dim=fp_dim).to(device)
 
     print(f"Model: {model_type.upper()}  hidden={hidden}  depth/layers={depth}  ensemble={ensemble_size}")
 

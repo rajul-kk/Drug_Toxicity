@@ -152,4 +152,10 @@ def smiles_to_graph(smiles):
     x = torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
     edge_attr = torch.nan_to_num(edge_attr, nan=0.0, posinf=0.0, neginf=0.0)
 
-    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+    # ── Morgan fingerprint (ECFP4, 2048 bits) — global topology complement ──────
+    fp_bits = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048)
+    fp = torch.zeros(2048, dtype=torch.float)
+    for bit in fp_bits.GetOnBits():
+        fp[bit] = 1.0
+
+    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, fp=fp.unsqueeze(0))

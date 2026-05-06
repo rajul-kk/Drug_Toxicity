@@ -23,8 +23,8 @@ class ToxicDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        # v5: nan_to_num guard in featurizer ensures no NaN in cached features
-        return [f'{self.name}_v5.pt']
+        # v6: Morgan ECFP4 fingerprint (2048 bits) added as data.fp
+        return [f'{self.name}_v6.pt']
 
     def download(self):
         if self.name == 'tox21':
