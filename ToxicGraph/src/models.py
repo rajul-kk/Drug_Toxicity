@@ -23,17 +23,12 @@ class GNN(torch.nn.Module):
         self.bn4 = nn.BatchNorm1d(hidden_channels)
 
         self.set2set = Set2Set(hidden_channels, processing_steps=4)
+        self.lin = nn.Linear(2 * hidden_channels, num_classes)
 
         # nn.Dropout modules (not F.dropout) so enable_mc_dropout can flip them
         # independently of BatchNorm during MC uncertainty sampling
         self.dropout_mid = nn.Dropout(p=0.2)
         self.dropout_out = nn.Dropout(p=0.5)
-        self.ffn = nn.Sequential(
-            nn.Linear(2 * hidden_channels, hidden_channels),
-            nn.ReLU(),
-            nn.Dropout(p=0.25),
-            nn.Linear(hidden_channels, num_classes),
-        )
 
     def forward(self, x, edge_index=None, edge_attr=None, batch=None):
         if edge_index is None and hasattr(x, 'x'):
@@ -52,7 +47,7 @@ class GNN(torch.nn.Module):
 
         x = self.set2set(x, batch)          # (B, 2 * hidden_channels)
         x = self.dropout_out(x)
-        return self.ffn(x)
+        return self.lin(x)
 
 
 class DMPNN(nn.Module):
@@ -77,12 +72,7 @@ class DMPNN(nn.Module):
         self.set2set = Set2Set(hidden_channels, processing_steps=4)
         self.dropout_mid = nn.Dropout(p=0.2)
         self.dropout_out = nn.Dropout(p=0.5)
-        self.ffn = nn.Sequential(
-            nn.Linear(2 * hidden_channels, hidden_channels),
-            nn.ReLU(),
-            nn.Dropout(p=0.25),
-            nn.Linear(hidden_channels, num_classes),
-        )
+        self.lin = nn.Linear(2 * hidden_channels, num_classes)
 
     def forward(self, x, edge_index=None, edge_attr=None, batch=None):
         if edge_index is None and hasattr(x, 'x'):
@@ -130,7 +120,7 @@ class DMPNN(nn.Module):
         if out.isnan().any():
             raise RuntimeError('NaN in set2set_out')
         out = self.dropout_out(out)
-        return self.ffn(out)
+        return self.lin(out)
 
 
 class EnsembleGNN(nn.Module):
