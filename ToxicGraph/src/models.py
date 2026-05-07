@@ -51,15 +51,6 @@ class GNN(torch.nn.Module):
 
 
 class DMPNN(nn.Module):
-    """
-    Directed Message Passing Neural Network (Chemprop-style).
-
-    Messages propagate along directed bonds. When updating edge (u→v), all edges
-    entering u are aggregated except the reverse (v→u), preventing message echo.
-    Uses the scatter-subtract trick: aggregate all incoming states per node, then
-    subtract the single reverse-edge contribution — O(E) instead of O(E²).
-    """
-
     def __init__(self, num_node_features, num_edge_features, hidden_channels, num_classes, depth=4):
         super().__init__()
         self.hidden_channels = hidden_channels
@@ -78,9 +69,6 @@ class DMPNN(nn.Module):
         if edge_index is None and hasattr(x, 'x'):
             data = x
             x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
-            fp = getattr(data, 'fp', None)
-        else:
-            fp = None
 
         num_nodes = x.size(0)
 
@@ -124,11 +112,45 @@ class DMPNN(nn.Module):
 
 
 class EnsembleGNN(nn.Module):
-    """Wraps multiple GNN models and returns their mean prediction."""
-
     def __init__(self, models):
         super().__init__()
         self.models = nn.ModuleList(models)
 
     def forward(self, *args, **kwargs):
         return torch.stack([m(*args, **kwargs) for m in self.models]).mean(0)
+
+
+def build_and_load_ensemble(config, device):
+    import os
+    from src.featurizer import smiles_to_graph
+    from src.dataset import DATASET_CONFIGS
+
+    dummy = smiles_to_graph('CCO')
+    num_node_features = dummy.x.shape[1]
+    edge_dim = dummy.edge_attr.shape[1]
+    names = config['dataset'].get('names') or [config['dataset']['name']]
+    # tasks=None means auto-detected (e.g. ToxCast) — load the saved dataset to get num_classes
+    if any(DATASET_CONFIGS[n]['tasks'] is None for n in names):
+        from src.dataset import load_dataset
+        num_classes = len(load_dataset(config).primary_tasks)
+    else:
+        num_classes = sum(len(DATASET_CONFIGS[n]['tasks']) for n in names)
+    hidden = config['model']['hidden_channels']
+    depth = config['model'].get('depth', 4)
+    model_type = config['model'].get('type', 'gnn')
+    ensemble_size = config['model'].get('ensemble_size', 3)
+
+    models = []
+    for i in range(ensemble_size):
+        path = f'model_{i}.pth'
+        if not os.path.exists(path):
+            raise FileNotFoundError(f'{path} not found — run train.py first')
+        if model_type == 'dmpnn':
+            m = DMPNN(num_node_features, edge_dim, hidden, num_classes, depth=depth).to(device)
+        else:
+            m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim).to(device)
+        m.load_state_dict(torch.load(path, map_location=device))
+        m.eval()
+        models.append(m)
+
+    return EnsembleGNN(models)

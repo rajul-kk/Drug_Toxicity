@@ -65,7 +65,7 @@ def _generate_conformer(mol):
         mol_h = Chem.AddHs(mol)
         if AllChem.EmbedMolecule(mol_h, AllChem.ETKDGv3()) != 0:
             return None
-        AllChem.MMFFOptimizeMolecule(mol_h)
+        AllChem.MMFFOptimizeMolecule(mol_h, maxIters=500)
         conf = mol_h.GetConformer()
         # Heavy atoms keep their original indices 0..n-1 after AddHs
         n = mol.GetNumAtoms()
@@ -148,14 +148,7 @@ def smiles_to_graph(smiles):
     angle_feat = _compute_angle_features(mol, pos)        # (N, 2)
     x = torch.cat([x, angle_feat], dim=1)                 # (N, 44)
 
-    # Replace any NaN/inf that slipped through with zeros
     x = torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
     edge_attr = torch.nan_to_num(edge_attr, nan=0.0, posinf=0.0, neginf=0.0)
 
-    # ── Morgan fingerprint (ECFP4, 2048 bits) — global topology complement ──────
-    fp_bits = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048)
-    fp = torch.zeros(2048, dtype=torch.float)
-    for bit in fp_bits.GetOnBits():
-        fp[bit] = 1.0
-
-    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, fp=fp.unsqueeze(0))
+    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)

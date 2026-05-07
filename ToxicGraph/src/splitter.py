@@ -4,10 +4,7 @@ from rdkit.Chem.Scaffolds import MurckoScaffold
 
 
 def scaffold_split(dataset, train_frac=0.8, val_frac=0.1):
-    """
-    Split a dataset by Murcko scaffold so no scaffold appears in more than one split.
-    Prevents data leakage between structurally similar molecules.
-    """
+    """No scaffold appears in more than one split — prevents data leakage."""
     scaffolds = {}
     for i, smi in enumerate(dataset.smiles_list):
         mol = Chem.MolFromSmiles(smi)

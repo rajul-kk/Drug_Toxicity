@@ -2,24 +2,16 @@
 import os
 import yaml
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from torch_geometric.loader import DataLoader
-
 from sklearn.metrics import roc_auc_score, average_precision_score
 from tqdm import tqdm
 
-from src.dataset import ToxicDataset
+from src.dataset import load_dataset, TOX21_TASKS
 from src.models import GNN, DMPNN, EnsembleGNN
 from src.splitter import scaffold_split
 from src.calibration import fit_temperature, compute_ece, compute_brier
-
-TOX21_TASKS = [
-    'NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase',
-    'NR-ER', 'NR-ER-LBD', 'NR-PPAR-gamma',
-    'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53',
-]
 
 
 def collect_preds(model, loader, device):
@@ -129,8 +121,7 @@ def train_single(model, train_loader, val_loader, num_tasks, device, config, run
                 print(f'[{run_idx + 1}] Early stop at epoch {epoch} (best val AUC {best_val_auc:.4f})')
                 break
 
-    if best_state is not None:
-        model.load_state_dict(best_state)
+    model.load_state_dict(best_state)
     return model
 
 
@@ -141,7 +132,7 @@ def train():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Device: {device}")
 
-    dataset = ToxicDataset(root=config['dataset']['root'], name=config['dataset']['name'])
+    dataset = load_dataset(config)
     train_dataset, val_dataset, test_dataset = scaffold_split(dataset)
     print(f"Scaffold split: {len(train_dataset)} train / {len(val_dataset)} val / {len(test_dataset)} test")
 
@@ -158,7 +149,10 @@ def train():
     num_node_features = dataset.num_node_features
     edge_dim = dataset[0].edge_attr.shape[1]
     num_tasks = dataset[0].y.shape[1] if dataset[0].y.dim() > 1 else 1
-    task_names = TOX21_TASKS if config['dataset']['name'] == 'tox21' else None
+
+    primary_tasks = dataset.primary_tasks
+    eval_num_tasks = len(primary_tasks)
+    task_names = primary_tasks
     ensemble_size = config['model'].get('ensemble_size', 3)
     hidden = config['model']['hidden_channels']
     model_type = config['model'].get('type', 'gnn')
@@ -190,7 +184,7 @@ def train():
         if device.type == 'cuda':
             model = torch.compile(model)
 
-        model = train_single(model, train_loader, val_loader, num_tasks, device, config, run_idx)
+        model = train_single(model, train_loader, val_loader, eval_num_tasks, device, config, run_idx)
 
         # Save via state_dict so it's compatible with uncompiled model at load time
         state = model._orig_mod.state_dict() if hasattr(model, '_orig_mod') else model.state_dict()
@@ -206,13 +200,13 @@ def train():
     ensemble = EnsembleGNN(ensemble_models)
 
     print("\n=== Ensemble Test Results ===")
-    eval_full_metrics(ensemble, test_loader, num_tasks, device, task_names)
+    eval_full_metrics(ensemble, test_loader, eval_num_tasks, device, task_names)
 
     print("Fitting temperature scaler on validation set...")
     temperature = fit_temperature(ensemble, val_loader, device)
     torch.save(temperature, 'temperature.pt')
     print(f"\n=== Calibrated Test Results (T={temperature:.4f}) ===")
-    eval_full_metrics(ensemble, test_loader, num_tasks, device, task_names, temperature=temperature)
+    eval_full_metrics(ensemble, test_loader, eval_num_tasks, device, task_names, temperature=temperature)
 
 
 if __name__ == '__main__':

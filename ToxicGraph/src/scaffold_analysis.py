@@ -1,14 +1,4 @@
-"""
-Scaffold-level AUC analysis.
-
-Use this after a RANDOM split, not a scaffold split. With scaffold split the
-test set is intentionally sparse and novel — most scaffolds have 1–2 molecules,
-making per-scaffold AUC uncomputable (requires both positive and negative labels).
-
-Example:
-    from src.scaffold_analysis import print_scaffold_analysis
-    print_scaffold_analysis(ensemble, test_dataset, num_tasks, device, task_names)
-"""
+# Use after a RANDOM split only — scaffold split test sets are too sparse for per-scaffold AUC.
 import torch
 import numpy as np
 from rdkit import Chem

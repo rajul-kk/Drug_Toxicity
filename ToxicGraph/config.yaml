@@ -1,8 +1,8 @@
 dataset:
   root: 'data'
-  name: 'tox21'
+  names: [tox21]          # add clintox and/or sider to train on combined datasets
 model:
-  type: dmpnn       # gnn | dmpnn
+  type: gnn       # gnn | dmpnn
   hidden_channels: 128
   ensemble_size: 3
   depth: 4           # message passing steps (dmpnn) / conv layers (gnn)

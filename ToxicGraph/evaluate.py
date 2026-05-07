@@ -5,42 +5,20 @@ import torch
 import numpy as np
 from torch_geometric.loader import DataLoader
 
-from src.dataset import ToxicDataset
-from src.models import GNN, DMPNN, EnsembleGNN
+from src.dataset import load_dataset
+from src.models import build_and_load_ensemble
 from src.splitter import scaffold_split
 from src.utils import visualize_molecule_3d
-from train import eval_full_metrics, TOX21_TASKS
+from train import eval_full_metrics
 
 OUT_DIR = 'evaluations'
 TARGET_IMAGES = 20
 
 
-def load_ensemble(config, device):
-    dataset = ToxicDataset(root=config['dataset']['root'], name=config['dataset']['name'])
+def load_test_dataset(config):
+    dataset = load_dataset(config)
     _, _, test_dataset = scaffold_split(dataset)
-
-    num_node_features = dataset.num_node_features
-    edge_dim = dataset[0].edge_attr.shape[1]
-    num_tasks = dataset[0].y.shape[1]
-    hidden = config['model']['hidden_channels']
-    depth = config['model'].get('depth', 4)
-    model_type = config['model'].get('type', 'gnn')
-    ensemble_size = config['model'].get('ensemble_size', 3)
-
-    models = []
-    for i in range(ensemble_size):
-        path = f'model_{i}.pth'
-        if not os.path.exists(path):
-            raise FileNotFoundError(f'{path} not found — run train.py first')
-        if model_type == 'dmpnn':
-            m = DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth).to(device)
-        else:
-            m = GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim).to(device)
-        m.load_state_dict(torch.load(path, map_location=device))
-        m.eval()
-        models.append(m)
-
-    return EnsembleGNN(models), test_dataset
+    return test_dataset, dataset.primary_tasks
 
 
 def collect_predictions(ensemble, test_dataset, device, temperature):
@@ -65,14 +43,14 @@ def main():
     temperature = float(torch.load('temperature.pt', map_location='cpu')) if os.path.exists('temperature.pt') else 1.0
     print(f'Temperature: {temperature:.4f}')
 
-    ensemble, test_dataset = load_ensemble(config, device)
+    ensemble = build_and_load_ensemble(config, device)
+    test_dataset, primary_tasks = load_test_dataset(config)
 
     # ── metrics ───────────────────────────────────────────────────────────────
     loader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=0)
-    task_names = TOX21_TASKS if config['dataset']['name'] == 'tox21' else None
-    num_tasks = test_dataset[0].y.shape[1]
+    num_tasks = len(primary_tasks)
     print('\n=== Test Set Metrics ===')
-    eval_full_metrics(ensemble, loader, num_tasks, device, task_names, temperature=temperature)
+    eval_full_metrics(ensemble, loader, num_tasks, device, primary_tasks, temperature=temperature)
 
     # ── 3D visualisations ────────────────────────────────────────────────────
     os.makedirs(OUT_DIR, exist_ok=True)

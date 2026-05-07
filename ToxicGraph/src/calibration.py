@@ -14,10 +14,6 @@ def enable_mc_dropout(model):
 
 
 def mc_sample(model, data, n_samples=30):
-    """
-    Return (mean_logits, std_logits) over n_samples stochastic forward passes.
-    Call on a single graph Data object (batch dim already set).
-    """
     enable_mc_dropout(model)
     samples = []
     with torch.no_grad():
@@ -28,10 +24,6 @@ def mc_sample(model, data, n_samples=30):
 
 
 def fit_temperature(model, val_loader, device):
-    """
-    Post-hoc calibration: find scalar T that minimises NLL on the val set.
-    Returns T as a float. T > 1 softens probabilities toward 0.5; T < 1 sharpens them.
-    """
     logits_list, labels_list = [], []
     model.eval()
     with torch.no_grad():
@@ -60,10 +52,6 @@ def fit_temperature(model, val_loader, device):
 
 
 def compute_ece(probs, labels, n_bins=10):
-    """
-    Expected Calibration Error over all labeled (prob, label) pairs.
-    Lower is better; 0 means predicted probabilities match empirical frequencies exactly.
-    """
     ece = 0.0
     n = len(probs)
     for lo, hi in zip(np.linspace(0, 1, n_bins + 1)[:-1],
@@ -78,5 +66,4 @@ def compute_ece(probs, labels, n_bins=10):
 
 
 def compute_brier(probs, labels):
-    """Brier score: MSE between predicted probabilities and true labels. Lower is better."""
     return float(np.mean((probs - labels) ** 2))

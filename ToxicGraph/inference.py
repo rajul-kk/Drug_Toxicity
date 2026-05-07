@@ -2,43 +2,10 @@
 import os
 import yaml
 import torch
-from src.models import GNN, DMPNN, EnsembleGNN
+from src.dataset import TOX21_TASKS
+from src.models import build_and_load_ensemble
 from src.featurizer import smiles_to_graph
 from src.calibration import mc_sample
-
-TOX21_TASKS = [
-    'NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase',
-    'NR-ER', 'NR-ER-LBD', 'NR-PPAR-gamma',
-    'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53',
-]
-
-
-def load_model(config, device):
-    dummy = smiles_to_graph('CCO')   # use a molecule with bonds so edge_attr has shape[1]
-    num_node_features = dummy.x.shape[1]
-    edge_dim = dummy.edge_attr.shape[1]
-    num_classes = 12 if config['dataset']['name'] == 'tox21' else 1
-    hidden = config['model']['hidden_channels']
-    depth = config['model'].get('depth', 4)
-    model_type = config['model'].get('type', 'gnn')
-    ensemble_size = config['model'].get('ensemble_size', 3)
-
-    models = []
-    for i in range(ensemble_size):
-        path = f'model_{i}.pth'
-        if os.path.exists(path):
-            if model_type == 'dmpnn':
-                m = DMPNN(num_node_features, edge_dim, hidden, num_classes, depth=depth).to(device)
-            else:
-                m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim).to(device)
-            m.load_state_dict(torch.load(path, map_location=device))
-            m.eval()
-            models.append(m)
-
-    if not models:
-        raise FileNotFoundError("No model files found (model_0.pth, …). Run train.py first.")
-
-    return EnsembleGNN(models) if len(models) > 1 else models[0]
 
 
 def predict(smiles_list, n_mc=30):
@@ -51,7 +18,7 @@ def predict(smiles_list, n_mc=30):
         config = yaml.safe_load(f)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = load_model(config, device)
+    model = build_and_load_ensemble(config, device)
     task_names = TOX21_TASKS if config['dataset']['name'] == 'tox21' else None
 
     temperature = 1.0

@@ -7,6 +7,7 @@ from rdkit import Chem
 from rdkit.Chem import Draw
 from src.models import GNN
 from src.featurizer import smiles_to_graph
+from src.dataset import TOX21_TASKS
 
 try:
     from torch_geometric.explain import Explainer, GNNExplainer
@@ -14,12 +15,6 @@ try:
 except ImportError:
     from torch_geometric.nn import GNNExplainer
     PYG_EXPLAINER_V2 = False
-
-TOX21_TASKS = [
-    'NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase',
-    'NR-ER', 'NR-ER-LBD', 'NR-PPAR-gamma',
-    'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53',
-]
 
 def explain_molecule(smiles, target_task_idx=0, output_dir='explanations'):
     os.makedirs(output_dir, exist_ok=True)
