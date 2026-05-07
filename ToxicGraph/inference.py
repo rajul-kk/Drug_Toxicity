@@ -28,9 +28,9 @@ def load_model(config, device):
         path = f'model_{i}.pth'
         if os.path.exists(path):
             if model_type == 'dmpnn':
-                m = DMPNN(num_node_features, edge_dim, hidden, num_classes, depth=depth, fp_dim=2048).to(device)
+                m = DMPNN(num_node_features, edge_dim, hidden, num_classes, depth=depth).to(device)
             else:
-                m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim, fp_dim=2048).to(device)
+                m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim).to(device)
             m.load_state_dict(torch.load(path, map_location=device))
             m.eval()
             models.append(m)

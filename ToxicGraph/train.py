@@ -164,11 +164,10 @@ def train():
     model_type = config['model'].get('type', 'gnn')
     depth = config['model'].get('depth', 4)
 
-    fp_dim = 2048
     def build_model():
         if model_type == 'dmpnn':
-            return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth, fp_dim=fp_dim).to(device)
-        return GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim, fp_dim=fp_dim).to(device)
+            return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth).to(device)
+        return GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim).to(device)
 
     print(f"Model: {model_type.upper()}  hidden={hidden}  depth/layers={depth}  ensemble={ensemble_size}")
 
