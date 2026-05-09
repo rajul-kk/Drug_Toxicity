@@ -1,11 +1,12 @@
 dataset:
   root: 'data'
-  names: [tox21]          # add clintox and/or sider to train on combined datasets
+  names: [toxcast]          # add clintox and/or sider to train on combined datasets
 model:
   type: gnn       # gnn | dmpnn
   hidden_channels: 128
+  task_dim: 64    # task embedding size for task-conditioned readout
   ensemble_size: 3
-  depth: 4           # message passing steps (dmpnn) / conv layers (gnn)
+  depth: 4        # message passing steps (dmpnn) / conv layers (gnn)
 training:
   batch_size: 64
   learning_rate: 0.0003

@@ -7,7 +7,7 @@ from torch_geometric.loader import DataLoader
 
 from src.dataset import load_dataset
 from src.models import build_and_load_ensemble
-from src.splitter import scaffold_split
+from src.splitter import scaffold_split, multidataset_scaffold_split
 from src.utils import visualize_molecule_3d
 from train import eval_full_metrics
 
@@ -17,8 +17,10 @@ TARGET_IMAGES = 20
 
 def load_test_dataset(config):
     dataset = load_dataset(config)
-    _, _, test_dataset = scaffold_split(dataset)
-    return test_dataset, dataset.primary_tasks
+    splitter = multidataset_scaffold_split if hasattr(dataset, 'source_list') else scaffold_split
+    _, _, test_dataset = splitter(dataset)
+    all_tasks = dataset.all_tasks if hasattr(dataset, 'all_tasks') else dataset.primary_tasks
+    return test_dataset, all_tasks
 
 
 def collect_predictions(ensemble, test_dataset, device, temperature):
@@ -44,13 +46,13 @@ def main():
     print(f'Temperature: {temperature:.4f}')
 
     ensemble = build_and_load_ensemble(config, device)
-    test_dataset, primary_tasks = load_test_dataset(config)
+    test_dataset, all_tasks = load_test_dataset(config)
 
     # ── metrics ───────────────────────────────────────────────────────────────
     loader = DataLoader(test_dataset, batch_size=64, shuffle=False, num_workers=0)
-    num_tasks = len(primary_tasks)
+    num_tasks = len(all_tasks)
     print('\n=== Test Set Metrics ===')
-    eval_full_metrics(ensemble, loader, num_tasks, device, primary_tasks, temperature=temperature)
+    eval_full_metrics(ensemble, loader, num_tasks, device, all_tasks, temperature=temperature)
 
     # ── 3D visualisations ────────────────────────────────────────────────────
     os.makedirs(OUT_DIR, exist_ok=True)

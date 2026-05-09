@@ -5,8 +5,31 @@ import torch.nn.functional as F
 from torch_geometric.nn import GATv2Conv, Set2Set
 
 
+class TaskHead(nn.Module):
+    """
+    Task-conditioned readout: each task has a learned embedding that is concatenated
+    with the molecule embedding before scoring. Enables few-shot transfer to new tasks
+    by fine-tuning only the new task embedding while freezing the encoder.
+    """
+    def __init__(self, mol_dim, num_tasks, task_dim):
+        super().__init__()
+        self.task_emb = nn.Embedding(num_tasks, task_dim)
+        self.mlp = nn.Sequential(
+            nn.Linear(mol_dim + task_dim, mol_dim),
+            nn.ReLU(),
+            nn.Linear(mol_dim, 1),
+        )
+
+    def forward(self, mol):
+        # mol: (B, mol_dim)
+        T = self.task_emb.weight                                    # (T, task_dim)
+        mol_exp = mol.unsqueeze(1).expand(-1, T.size(0), -1)       # (B, T, mol_dim)
+        task_exp = T.unsqueeze(0).expand(mol.size(0), -1, -1)      # (B, T, task_dim)
+        return self.mlp(torch.cat([mol_exp, task_exp], dim=-1)).squeeze(-1)  # (B, T)
+
+
 class GNN(torch.nn.Module):
-    def __init__(self, num_node_features, hidden_channels, num_classes, heads=4, edge_dim=8):
+    def __init__(self, num_node_features, hidden_channels, num_classes, heads=4, edge_dim=8, task_dim=64):
         super().__init__()
         head_dim = hidden_channels // heads
 
@@ -23,7 +46,7 @@ class GNN(torch.nn.Module):
         self.bn4 = nn.BatchNorm1d(hidden_channels)
 
         self.set2set = Set2Set(hidden_channels, processing_steps=4)
-        self.lin = nn.Linear(2 * hidden_channels, num_classes)
+        self.task_head = TaskHead(2 * hidden_channels, num_classes, task_dim)
 
         # nn.Dropout modules (not F.dropout) so enable_mc_dropout can flip them
         # independently of BatchNorm during MC uncertainty sampling
@@ -45,13 +68,13 @@ class GNN(torch.nn.Module):
         x = self.dropout_mid(x)
         x = self.bn4((x + self.conv4(x, edge_index, edge_attr=edge_attr)).relu())
 
-        x = self.set2set(x, batch)          # (B, 2 * hidden_channels)
-        x = self.dropout_out(x)
-        return self.lin(x)
+        mol = self.set2set(x, batch)        # (B, 2 * hidden_channels)
+        mol = self.dropout_out(mol)
+        return self.task_head(mol)          # (B, num_tasks)
 
 
 class DMPNN(nn.Module):
-    def __init__(self, num_node_features, num_edge_features, hidden_channels, num_classes, depth=4):
+    def __init__(self, num_node_features, num_edge_features, hidden_channels, num_classes, depth=4, task_dim=64):
         super().__init__()
         self.hidden_channels = hidden_channels
         self.depth = depth
@@ -63,7 +86,7 @@ class DMPNN(nn.Module):
         self.set2set = Set2Set(hidden_channels, processing_steps=4)
         self.dropout_mid = nn.Dropout(p=0.2)
         self.dropout_out = nn.Dropout(p=0.5)
-        self.lin = nn.Linear(2 * hidden_channels, num_classes)
+        self.task_head = TaskHead(2 * hidden_channels, num_classes, task_dim)
 
     def forward(self, x, edge_index=None, edge_attr=None, batch=None):
         if edge_index is None and hasattr(x, 'x'):
@@ -75,7 +98,7 @@ class DMPNN(nn.Module):
         if edge_index.size(1) == 0:
             zeros = x.new_zeros(num_nodes, self.hidden_channels)
             atom_out = self.W_a(torch.cat([x, zeros], dim=-1)).relu()
-            return self.lin(self.dropout_out(self.set2set(atom_out, batch)))
+            return self.task_head(self.dropout_out(self.set2set(atom_out, batch)))
 
         src, dst = edge_index[0], edge_index[1]
         num_edges = edge_index.size(1)
@@ -108,7 +131,7 @@ class DMPNN(nn.Module):
         if out.isnan().any():
             raise RuntimeError('NaN in set2set_out')
         out = self.dropout_out(out)
-        return self.lin(out)
+        return self.task_head(out)          # (B, num_tasks)
 
 
 class EnsembleGNN(nn.Module):
@@ -137,6 +160,7 @@ def build_and_load_ensemble(config, device):
         num_classes = sum(len(DATASET_CONFIGS[n]['tasks']) for n in names)
     hidden = config['model']['hidden_channels']
     depth = config['model'].get('depth', 4)
+    task_dim = config['model'].get('task_dim', 64)
     model_type = config['model'].get('type', 'gnn')
     ensemble_size = config['model'].get('ensemble_size', 3)
 
@@ -146,9 +170,9 @@ def build_and_load_ensemble(config, device):
         if not os.path.exists(path):
             raise FileNotFoundError(f'{path} not found — run train.py first')
         if model_type == 'dmpnn':
-            m = DMPNN(num_node_features, edge_dim, hidden, num_classes, depth=depth).to(device)
+            m = DMPNN(num_node_features, edge_dim, hidden, num_classes, depth=depth, task_dim=task_dim).to(device)
         else:
-            m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim).to(device)
+            m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim, task_dim=task_dim).to(device)
         m.load_state_dict(torch.load(path, map_location=device))
         m.eval()
         models.append(m)

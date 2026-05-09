@@ -101,10 +101,10 @@ DATASET_CONFIGS = {
     },
     # Ames mutagenicity (Kazius et al. 2005): ~6.5k compounds, 1 task.
     'ames': {
-        'url': 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/Mutagenicity.csv',
+        'url': 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/mutagenicity.csv.gz',
         'smiles_col': 'smiles',
         'tasks': ['mutagenic'],
-        'gzip': False,
+        'gzip': True,
     },
     # CYP P450 inhibition (Veith et al. 2009): ~13k compounds, 5 isoforms.
     # Key ADMET endpoint — CYP inhibition drives most drug-drug interactions.

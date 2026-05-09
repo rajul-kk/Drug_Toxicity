@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from src.dataset import load_dataset, TOX21_TASKS
 from src.models import GNN, DMPNN, EnsembleGNN
-from src.splitter import scaffold_split
+from src.splitter import scaffold_split, multidataset_scaffold_split
 from src.calibration import fit_temperature, compute_ece, compute_brier
 
 
@@ -133,8 +133,12 @@ def train():
     print(f"Device: {device}")
 
     dataset = load_dataset(config)
-    train_dataset, val_dataset, test_dataset = scaffold_split(dataset)
-    print(f"Scaffold split: {len(train_dataset)} train / {len(val_dataset)} val / {len(test_dataset)} test")
+    if hasattr(dataset, 'source_list'):
+        print("Per-dataset scaffold split:")
+        train_dataset, val_dataset, test_dataset = multidataset_scaffold_split(dataset)
+    else:
+        train_dataset, val_dataset, test_dataset = scaffold_split(dataset)
+    print(f"Total: {len(train_dataset)} train / {len(val_dataset)} val / {len(test_dataset)} test")
 
     loader_kwargs = dict(
         batch_size=config['training']['batch_size'],
@@ -151,19 +155,20 @@ def train():
     num_tasks = dataset[0].y.shape[1] if dataset[0].y.dim() > 1 else 1
 
     primary_tasks = dataset.primary_tasks
-    eval_num_tasks = len(primary_tasks)
-    task_names = primary_tasks
+    eval_num_tasks = len(primary_tasks)   # used during training for val AUC / early stopping
+    all_tasks = dataset.all_tasks if hasattr(dataset, 'all_tasks') else primary_tasks
     ensemble_size = config['model'].get('ensemble_size', 3)
     hidden = config['model']['hidden_channels']
     model_type = config['model'].get('type', 'gnn')
     depth = config['model'].get('depth', 4)
+    task_dim = config['model'].get('task_dim', 64)
 
     def build_model():
         if model_type == 'dmpnn':
-            return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth).to(device)
-        return GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim).to(device)
+            return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth, task_dim=task_dim).to(device)
+        return GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim, task_dim=task_dim).to(device)
 
-    print(f"Model: {model_type.upper()}  hidden={hidden}  depth/layers={depth}  ensemble={ensemble_size}")
+    print(f"Model: {model_type.upper()}  hidden={hidden}  task_dim={task_dim}  depth/layers={depth}  ensemble={ensemble_size}")
 
     for run_idx in range(ensemble_size):
         print(f"\n{'=' * 55}")
@@ -200,13 +205,13 @@ def train():
     ensemble = EnsembleGNN(ensemble_models)
 
     print("\n=== Ensemble Test Results ===")
-    eval_full_metrics(ensemble, test_loader, eval_num_tasks, device, task_names)
+    eval_full_metrics(ensemble, test_loader, num_tasks, device, all_tasks)
 
     print("Fitting temperature scaler on validation set...")
     temperature = fit_temperature(ensemble, val_loader, device)
     torch.save(temperature, 'temperature.pt')
     print(f"\n=== Calibrated Test Results (T={temperature:.4f}) ===")
-    eval_full_metrics(ensemble, test_loader, eval_num_tasks, device, task_names, temperature=temperature)
+    eval_full_metrics(ensemble, test_loader, num_tasks, device, all_tasks, temperature=temperature)
 
 
 if __name__ == '__main__':
