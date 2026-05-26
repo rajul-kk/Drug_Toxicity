@@ -143,7 +143,7 @@ class EnsembleGNN(nn.Module):
         return torch.stack([m(*args, **kwargs) for m in self.models]).mean(0)
 
 
-def build_and_load_ensemble(config, device):
+def build_and_load_ensemble(config, device, model_dir='.'):
     import os
     from src.featurizer import smiles_to_graph
     from src.dataset import DATASET_CONFIGS
@@ -166,7 +166,7 @@ def build_and_load_ensemble(config, device):
 
     models = []
     for i in range(ensemble_size):
-        path = f'model_{i}.pth'
+        path = os.path.join(model_dir, f'model_{i}.pth')
         if not os.path.exists(path):
             raise FileNotFoundError(f'{path} not found — run train.py first')
         if model_type == 'dmpnn':

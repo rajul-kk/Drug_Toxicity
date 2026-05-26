@@ -2,28 +2,33 @@
 import os
 import yaml
 import torch
-from src.dataset import TOX21_TASKS
 from src.models import build_and_load_ensemble
 from src.featurizer import smiles_to_graph
 from src.calibration import mc_sample
 
 
-def predict(smiles_list, n_mc=30):
+def predict(smiles_list, n_mc=30, ensemble=None, task_names=None, temperature=None,
+            config=None, device=None, model_dir='.'):
     """
     Returns (means, stds, task_names).
-    Uses MC Dropout (n_mc forward passes) for per-prediction uncertainty.
-    Applies temperature calibration if temperature.pt is present.
+    Pass pre-loaded ensemble/task_names/temperature for the web app path.
+    Falls back to loading from disk when called from CLI (backwards compat).
     """
-    with open('config.yaml') as f:
-        config = yaml.safe_load(f)
+    if ensemble is None:
+        if config is None:
+            with open('config.yaml') as f:
+                config = yaml.safe_load(f)
+        if device is None:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        ensemble = build_and_load_ensemble(config, device, model_dir=model_dir)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = build_and_load_ensemble(config, device)
-    task_names = TOX21_TASKS if config['dataset']['name'] == 'tox21' else None
+    if temperature is None:
+        temp_path = os.path.join(model_dir, 'temperature.pt')
+        temperature = float(torch.load(temp_path, map_location='cpu')) \
+                      if os.path.exists(temp_path) else 1.0
 
-    temperature = 1.0
-    if os.path.exists('temperature.pt'):
-        temperature = float(torch.load('temperature.pt', map_location='cpu'))
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     means, stds = [], []
     for smiles in smiles_list:
@@ -34,7 +39,7 @@ def predict(smiles_list, n_mc=30):
             continue
         data.batch = torch.zeros(data.x.shape[0], dtype=torch.long)
         data = data.to(device)
-        mean_logits, std_logits = mc_sample(model, data, n_samples=n_mc)
+        mean_logits, std_logits = mc_sample(ensemble, data, n_samples=n_mc)
         mean_probs = torch.sigmoid(mean_logits / temperature).cpu().numpy().flatten()
         std_probs = std_logits.cpu().numpy().flatten()
         means.append(mean_probs)
@@ -45,23 +50,22 @@ def predict(smiles_list, n_mc=30):
 
 if __name__ == '__main__':
     test_smiles = [
-        'CCO',                                          # Ethanol
-        'C1=CC=CC=C1',                                  # Benzene
-        'CC(=O)OC1=CC=CC=C1C(=O)O',                    # Aspirin
-        'CC(=O)Nc1ccc(O)cc1',                           # Paracetamol
-        'Cn1cnc2c1c(=O)n(C)c(=O)n2C',                  # Caffeine
-        'Clc1ccc(cc1)C(c2ccc(Cl)cc2)C(Cl)(Cl)Cl',      # DDT
+        'CCO',
+        'C1=CC=CC=C1',
+        'CC(=O)OC1=CC=CC=C1C(=O)O',
+        'CC(=O)Nc1ccc(O)cc1',
+        'Cn1cnc2c1c(=O)n(C)c(=O)n2C',
+        'Clc1ccc(cc1)C(c2ccc(Cl)cc2)C(Cl)(Cl)Cl',
     ]
-
     means, stds, task_names = predict(test_smiles)
-    col_w = 18
-    header = f"{'SMILES':<45}" + "".join(f"{t:>{col_w}}" for t in task_names)
-    print(header)
-    print('-' * len(header))
-    for smi, m, s in zip(test_smiles, means, stds):
-        if m is None:
-            print(f"{smi:<45}  (invalid SMILES)")
-        else:
-            # format each task as "mean±std"
-            cols = "".join(f"{f'{v:.3f}±{u:.3f}':>{col_w}}" for v, u in zip(m, s))
-            print(f"{smi:<45}{cols}")
+    if task_names:
+        col_w = 18
+        header = f"{'SMILES':<45}" + "".join(f"{t:>{col_w}}" for t in task_names)
+        print(header)
+        print('-' * len(header))
+        for smi, m, s in zip(test_smiles, means, stds):
+            if m is None:
+                print(f"{smi:<45}  (invalid SMILES)")
+            else:
+                cols = "".join(f"{f'{v:.3f}±{u:.3f}':>{col_w}}" for v, u in zip(m, s))
+                print(f"{smi:<45}{cols}")

@@ -37,6 +37,8 @@ def _scaffold_split_indices(smiles_list, global_indices, train_frac, val_frac):
 def _make_split(dataset, indices):
     ds = dataset[indices]
     ds.smiles_list = [dataset.smiles_list[i] for i in indices]
+    if hasattr(dataset, 'source_list'):
+        ds.source_list = [dataset.source_list[i] for i in indices]
     return ds
 
 

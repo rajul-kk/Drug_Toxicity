@@ -1,5 +1,7 @@
 
 import os
+import pathlib
+import argparse
 import yaml
 import torch
 import torch.nn.functional as F
@@ -126,6 +128,11 @@ def train_single(model, train_loader, val_loader, num_tasks, device, config, run
 
 
 def train():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--out-dir', default=None,
+                        help='Directory to save weights (default: checkpoints/<model_type>)')
+    args, _ = parser.parse_known_args()
+
     with open('config.yaml') as f:
         config = yaml.safe_load(f)
 
@@ -163,6 +170,10 @@ def train():
     depth = config['model'].get('depth', 4)
     task_dim = config['model'].get('task_dim', 64)
 
+    out_dir = args.out_dir or f'checkpoints/{model_type}'
+    pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
+    print(f"Output dir: {out_dir}")
+
     def build_model():
         if model_type == 'dmpnn':
             return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth, task_dim=task_dim).to(device)
@@ -178,7 +189,7 @@ def train():
 
         model = build_model()
 
-        save_path = f'model_{run_idx}.pth'
+        save_path = os.path.join(out_dir, f'model_{run_idx}.pth')
         if os.path.exists(save_path):
             try:
                 model.load_state_dict(torch.load(save_path, map_location=device))
@@ -200,7 +211,7 @@ def train():
     ensemble_models = []
     for run_idx in range(ensemble_size):
         m = build_model()
-        m.load_state_dict(torch.load(f'model_{run_idx}.pth', map_location=device))
+        m.load_state_dict(torch.load(os.path.join(out_dir, f'model_{run_idx}.pth'), map_location=device))
         ensemble_models.append(m)
     ensemble = EnsembleGNN(ensemble_models)
 
@@ -209,7 +220,7 @@ def train():
 
     print("Fitting temperature scaler on validation set...")
     temperature = fit_temperature(ensemble, val_loader, device)
-    torch.save(temperature, 'temperature.pt')
+    torch.save(temperature, os.path.join(out_dir, 'temperature.pt'))
     print(f"\n=== Calibrated Test Results (T={temperature:.4f}) ===")
     eval_full_metrics(ensemble, test_loader, num_tasks, device, all_tasks, temperature=temperature)
 
