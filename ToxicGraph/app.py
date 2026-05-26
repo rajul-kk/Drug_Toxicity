@@ -36,8 +36,6 @@ def _build_task_info(config):
 
 
 def _load_available_ensembles(config, device):
-    from sklearn.metrics import roc_auc_score, average_precision_score
-
     ensembles, test_caches = {}, {}
     for arch in ['gnn', 'dmpnn']:
         model_dir = os.path.join('checkpoints', arch)
@@ -57,34 +55,27 @@ def _load_available_ensembles(config, device):
         smiles_list = test_dataset.smiles_list
         source_list = test_dataset.source_list if hasattr(test_dataset, 'source_list') \
                       else [config['dataset'].get('names', ['unknown'])[0]] * len(smiles_list)
-        sdf_list = [smiles_to_sdf(s) or '' for s in smiles_list]
-
         n_tasks = probs.shape[1]
-        aucs, auprcs = [], []
+        scores = []
         for mol_idx in range(len(smiles_list)):
             p, l = probs[mol_idx], labels[mol_idx]
             valid = l != -1
             if valid.sum() > 0:
-                auc_vals = [roc_auc_score([l[t]], [p[t]]) if valid[t] else np.nan
-                            for t in range(n_tasks)]
-                auprc_vals = [average_precision_score([l[t]], [p[t]]) if valid[t] else np.nan
-                              for t in range(n_tasks)]
-                aucs.append(float(np.nanmean(auc_vals)))
-                auprcs.append(float(np.nanmean(auprc_vals)))
+                # mean probability of the correct label across valid tasks
+                vals = [float(p[t]) if l[t] == 1 else float(1.0 - p[t])
+                        for t in range(n_tasks) if valid[t]]
+                scores.append(float(np.mean(vals)))
             else:
-                aucs.append(0.0)
-                auprcs.append(0.0)
+                scores.append(0.0)
 
         ensembles[arch] = ens
         test_caches[arch] = {
             'smiles':       smiles_list,
-            'sdf':          sdf_list,
             'probs':        probs,
             'labels':       labels,
             'dataset':      source_list,
             'max_conf':     probs.max(axis=1).tolist(),
-            'auc_per_mol':  aucs,
-            'auprc_per_mol': auprcs,
+            'score_per_mol': scores,
             'temperature':  temperature,
         }
 
@@ -217,8 +208,7 @@ def api_testset(request: Request, model: Optional[str] = None, page: int = 1,
 
     sort_map = {
         'conf':  lambda i: -cache['max_conf'][i],
-        'auc':   lambda i: -cache['auc_per_mol'][i],
-        'auprc': lambda i: -cache['auprc_per_mol'][i],
+        'score': lambda i: -cache['score_per_mol'][i],
     }
     indices.sort(key=sort_map.get(sort, sort_map['conf']))
 
@@ -231,8 +221,7 @@ def api_testset(request: Request, model: Optional[str] = None, page: int = 1,
         'smiles':  cache['smiles'][i],
         'dataset': cache['dataset'][i],
         'max_conf': round(cache['max_conf'][i], 4),
-        'auc':     round(cache['auc_per_mol'][i], 4),
-        'auprc':   round(cache['auprc_per_mol'][i], 4),
+        'score':   round(cache['score_per_mol'][i], 4),
     } for i in page_slice]
 
     return {
@@ -255,10 +244,11 @@ def api_testset_single(idx: int, request: Request, model: Optional[str] = None):
     if idx < 0 or idx >= len(cache['smiles']):
         raise HTTPException(404, f'Index {idx} out of range')
 
+    smiles = cache['smiles'][idx]
     return {
         'idx':        idx,
-        'smiles':     cache['smiles'][idx],
-        'sdf':        cache['sdf'][idx],
+        'smiles':     smiles,
+        'sdf':        smiles_to_sdf(smiles) or '',
         'probs':      cache['probs'][idx].tolist(),
         'labels':     cache['labels'][idx].tolist(),
         'dataset':    cache['dataset'][idx],

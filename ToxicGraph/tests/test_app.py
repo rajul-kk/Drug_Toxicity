@@ -9,13 +9,11 @@ def client():
     """Patch heavy startup so tests run without real model weights."""
     mock_cache = {
         'smiles': ['CCO', 'c1ccccc1'],
-        'sdf': ['sdf1', 'sdf2'],
         'probs': np.array([[0.9, 0.1, 0.5], [0.3, 0.7, 0.2]]),
         'labels': np.array([[1.0, 0.0, -1.0], [0.0, 1.0, -1.0]]),
         'dataset': ['tox21', 'tox21'],
         'max_conf': [0.9, 0.7],
-        'auc_per_mol': [0.85, 0.72],
-        'auprc_per_mol': [0.80, 0.68],
+        'score_per_mol': [0.85, 0.72],
         'temperature': 1.0,
     }
     mock_ens = MagicMock()

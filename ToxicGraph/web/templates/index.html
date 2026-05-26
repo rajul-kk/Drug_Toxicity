@@ -1,3 +1,530 @@
-<!DOCTYPE html><html><head><title>ToxicGraph</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ToxicGraph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://3dmol.org/build/3Dmol-min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <link rel="stylesheet" href="/static/style.css">
-</head><body><h1>ToxicGraph</h1></body></html>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="wordmark"><div class="wordmark-dot"></div>ToxicGraph</div>
+  <div class="query-bar">
+    <input type="text" id="smiles-inp" placeholder="Paste SMILES — CC(=O)Nc1ccc(O)cc1">
+    <button class="query-btn" onclick="runPredict()">Predict →</button>
+  </div>
+  <div id="model-toggle" class="nav-view-toggle" style="display:none"></div>
+  <div class="nav-view-toggle">
+    <button class="vt-btn active" onclick="showView('predict',this)">Predict</button>
+    <button class="vt-btn" onclick="showView('browse',this)">Browse test set</button>
+  </div>
+</nav>
+
+<!-- VIEW 1+2: PREDICT -->
+<div class="view active" id="view-predict">
+  <div class="predict-layout">
+
+    <!-- LEFT: 3D viewer -->
+    <div class="mol-card">
+      <div class="mol-card-header">
+        <span class="mch-title">3D Conformation</span>
+        <span class="mch-badge new" id="mol-mode-badge">New prediction</span>
+      </div>
+      <div class="mol-3d-box">
+        <div id="predict-3d"></div>
+        <div class="loader" id="predict-loader"><div class="loader-ring"></div>loading 3D…</div>
+      </div>
+      <div class="mol-footer">
+        <div class="mol-smiles" id="mol-smiles-display"></div>
+        <div class="mol-sub" id="mol-name-display">Enter a SMILES above and click Predict →</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: metrics + tasks -->
+    <div class="right-panel">
+
+      <!-- 3 headline metrics -->
+      <div class="metric-strip">
+        <div class="metric-chip g">
+          <div class="mc-val g" id="chip-max-auc">—</div>
+          <div class="mc-lbl">Max AUC</div>
+        </div>
+        <div class="metric-chip p">
+          <div class="mc-val p" id="chip-mc-std">—</div>
+          <div class="mc-lbl">MC Std</div>
+        </div>
+        <div class="metric-chip b">
+          <div class="mc-val b" id="chip-top-task" style="font-size:18px">—</div>
+          <div class="mc-lbl">Top task</div>
+        </div>
+      </div>
+
+      <!-- Task panel with Summary / All tasks tabs -->
+      <div class="task-panel">
+        <div class="tp-tabs">
+          <div class="tp-tab active" onclick="switchTaskTab('summary',this)">Summary</div>
+          <div class="tp-tab" onclick="switchTaskTab('chart',this)">All tasks ↓</div>
+        </div>
+
+        <!-- SUMMARY TAB -->
+        <div class="tp-body" id="tp-summary">
+          <div class="task-bars" id="task-bars-container">
+            <div style="color:var(--text-3);font-size:12px;padding:8px 0">Run a prediction to see results.</div>
+          </div>
+          <div class="unc-note">
+            <div class="unc-icon"></div>
+            MC dropout · 30 forward passes · bars show mean · switch to "All tasks" for error bars
+          </div>
+          <div class="expand-hint" onclick="switchTaskTab('chart', document.querySelectorAll('.tp-tab')[1])">
+            Show all tasks with uncertainty <span>→</span>
+          </div>
+        </div>
+
+        <!-- ALL TASKS TAB (Chart) -->
+        <div class="tp-body hidden" id="tp-chart">
+          <div class="gt-legend" id="gt-legend" style="display:none">
+            <div class="gt-item"><span class="gt-sym" style="color:var(--red)">◆</span> Ground truth positive</div>
+            <div class="gt-item"><span class="gt-sym" style="color:var(--text-3)">●</span> Ground truth negative</div>
+            <div class="gt-item"><span class="gt-sym" style="color:var(--amber)">×</span> Missing label</div>
+            <div class="gt-item"><span style="font-size:11px;color:var(--text-3)">⊣⊢</span> MC uncertainty</div>
+          </div>
+          <div class="unc-note" id="new-mol-note" style="margin-bottom:8px">
+            <div class="unc-icon"></div>
+            New molecule — no ground truth available. Error bars = MC dropout std (30 passes).
+          </div>
+          <div id="task-chart" style="width:100%;height:320px"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div><!-- /view-predict -->
+
+
+<!-- VIEW 3: BROWSE -->
+<div class="view" id="view-browse">
+  <div class="browse-layout">
+    <div class="browse-header">
+      <div>
+        <div class="browse-title">Test set</div>
+        <div class="browse-sub" id="browse-sub">Loading…</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-chips" id="filter-chips">
+        <!-- built by boot() -->
+      </div>
+      <select class="sort-select" onchange="sortTable(this.value)">
+        <option value="conf">Sort: max confidence ↓</option>
+        <option value="score">Sort: score ↓</option>
+      </select>
+    </div>
+
+    <table class="mol-table">
+      <thead>
+        <tr>
+          <th class="thumb-cell"></th>
+          <th>SMILES</th>
+          <th>Dataset</th>
+          <th style="width:160px">Confidence</th>
+          <th>Score</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="mol-tbody">
+      </tbody>
+    </table>
+
+    <div class="pagination">
+      <div class="page-info" id="page-info">—</div>
+      <div class="page-btns" id="page-btns"></div>
+    </div>
+  </div>
+</div><!-- /view-browse -->
+
+
+<script>
+// ── globals populated by /api/info ─────────────
+let TASK_NAMES = [];
+let DS_COLORS  = [];
+let APP = {};
+
+// ── view switching ─────────────────────────────
+function showView(name, btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-view-toggle .vt-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='browse' && APP.taskNames) fetchBrowse();
+}
+
+// ── task tab switching ─────────────────────────
+let chartRendered = false;
+function switchTaskTab(name, btn){
+  document.querySelectorAll('.tp-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tp-body').forEach(b=>b.classList.add('hidden'));
+  btn.classList.add('active');
+  document.getElementById('tp-'+name).classList.remove('hidden');
+  if(name==='chart' && !chartRendered){
+    renderChart(window._isTestSet || false, window._currentGT || null);
+    chartRendered = true;
+  }
+}
+
+// ── plotly chart ───────────────────────────────
+function renderChart(isTestSet, gt){
+  const means = window._currentMeans || [];
+  const stds  = window._currentStds  || [];
+  if(!means.length) return;
+
+  const colors = means.map((_,i) => (DS_COLORS[i] || '#64748b') + 'cc');
+  const borders = means.map((_,i) => DS_COLORS[i] || '#64748b');
+
+  const traces = [{
+    type:'bar', x:TASK_NAMES, y:means,
+    error_y:{type:'data',array:stds,visible:true,color:'#9b9590',thickness:1.2,width:3},
+    marker:{color:colors, line:{color:borders,width:1}},
+    hovertemplate:'<b>%{x}</b><br>prob: %{y:.3f} ± %{error_y.array:.3f}<extra></extra>',
+    name:'Predicted probability',
+  }];
+
+  if(isTestSet && gt){
+    const gtX_pos=[], gtX_neg=[], gtX_mis=[];
+    const gtY_pos=[], gtY_neg=[], gtY_mis=[];
+    gt.forEach((v,i)=>{
+      if(v===1){gtX_pos.push(TASK_NAMES[i]);gtY_pos.push(1.02)}
+      else if(v===0){gtX_neg.push(TASK_NAMES[i]);gtY_neg.push(1.02)}
+      else{gtX_mis.push(TASK_NAMES[i]);gtY_mis.push(1.02)}
+    });
+    traces.push({type:'scatter',mode:'markers',x:gtX_pos,y:gtY_pos,name:'GT positive',
+      marker:{symbol:'diamond',size:8,color:'#dc2626'},hovertemplate:'<b>%{x}</b><br>GT: positive<extra></extra>'});
+    traces.push({type:'scatter',mode:'markers',x:gtX_neg,y:gtY_neg,name:'GT negative',
+      marker:{symbol:'circle',size:7,color:'#9b9590'},hovertemplate:'<b>%{x}</b><br>GT: negative<extra></extra>'});
+    traces.push({type:'scatter',mode:'markers',x:gtX_mis,y:gtY_mis,name:'Missing',
+      marker:{symbol:'x',size:7,color:'#b45309'},hovertemplate:'<b>%{x}</b><br>GT: missing<extra></extra>'});
+  }
+
+  // dataset section dividers (computed from task group sizes)
+  const shapes = [], annotations = [];
+  if(APP.taskGroups && APP.dsColors){
+    let offset = -0.5;
+    Object.entries(APP.taskGroups).forEach(([ds, tasks]) => {
+      const end = offset + tasks.length;
+      const col = APP.dsColors[ds] || '#64748b';
+      shapes.push({type:'rect',x0:offset,x1:end,y0:0,y1:1.08,
+        fillcolor:col+'08',line:{width:0},layer:'below'});
+      annotations.push({x:(offset+end)/2,y:1.06,xref:'x',yref:'y',text:ds,showarrow:false,
+        font:{size:10,color:col}});
+      offset = end;
+    });
+  }
+  shapes.push({type:'line',x0:-0.5,x1:TASK_NAMES.length-0.5,y0:.5,y1:.5,
+    line:{color:'rgba(0,0,0,.1)',width:1,dash:'dot'}});
+
+  const layout = {
+    paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+    margin:{t:10,b:80,l:30,r:10},
+    height:300,
+    xaxis:{tickangle:-45,tickfont:{size:9,family:'JetBrains Mono',color:'#9b9590'},
+           gridcolor:'rgba(0,0,0,.05)',zeroline:false},
+    yaxis:{range:[0,1.1],gridcolor:'rgba(0,0,0,.06)',zeroline:false,
+           tickfont:{size:10,family:'JetBrains Mono',color:'#9b9590'}},
+    shapes, annotations,
+    legend:{orientation:'h',y:-0.35,font:{size:10,family:'DM Sans'}},
+    showlegend: isTestSet,
+    hovermode:'closest',
+    font:{family:'DM Sans'},
+  };
+  Plotly.newPlot('task-chart', traces, layout, {responsive:true,displayModeBar:false});
+}
+
+// ── browse state + fetch ───────────────────────
+let browseState = {filter:'all', sort:'conf', page:1};
+
+async function fetchBrowse(){
+  const {filter, sort, page} = browseState;
+  const url = `/api/testset?model=${APP.activeModel||''}&page=${page}&per_page=20&filter=${filter}&sort=${sort}`;
+  const data = await fetch(url).then(r=>r.json());
+  renderBrowseRows(data.rows);
+  updatePagination(data.page, data.pages, data.total);
+  document.getElementById('browse-sub').textContent =
+    `${data.total} molecules · click any row to load in viewer`;
+}
+
+function renderBrowseRows(rows){
+  const tbody = document.getElementById('mol-tbody');
+  tbody.innerHTML = '';
+  rows.forEach(r => {
+    const conf = r.max_conf;
+    const col = conf>=0.8 ? 'var(--green)' : conf>=0.5 ? 'var(--amber)' : 'var(--blue-lt)';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="thumb-cell">
+        <img class="thumb-img"
+          src="https://cactus.nci.nih.gov/chemical/structure/${encodeURIComponent(r.smiles)}/image?width=44&height=44&bgcolor=f0f4ff"
+          onerror="this.src=''" alt="">
+      </td>
+      <td class="smiles-cell">${r.smiles}</td>
+      <td><span class="ds-pill ${r.dataset}">${r.dataset}</span></td>
+      <td>
+        <div class="conf-bar-wrap">
+          <div class="conf-track"><div class="conf-fill" style="width:${conf*100}%;background:${col}"></div></div>
+          <span class="conf-val" style="color:${col}">${conf.toFixed(2)}</span>
+        </div>
+      </td>
+      <td><span class="badge ${r.score>=0.75?'g':r.score>=0.55?'b':'a'}">${r.score.toFixed(2)}</span></td>
+      <td><button class="open-btn" onclick="openFromBrowse(${r.idx})">Open →</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function updatePagination(page, pages, total){
+  document.getElementById('page-info').textContent =
+    `Showing ${(page-1)*20+1}–${Math.min(page*20,total)} of ${total}`;
+  const btns = document.getElementById('page-btns');
+  btns.innerHTML = '';
+  const makeBtn = (label, p) => {
+    const b = document.createElement('div');
+    b.className = 'page-btn' + (p===page?' active':'');
+    b.textContent = label;
+    if(p && p!==page) b.onclick = () => { browseState.page=p; fetchBrowse(); };
+    btns.appendChild(b);
+  };
+  if(pages<=7){
+    for(let i=1;i<=pages;i++) makeBtn(i,i);
+  } else {
+    makeBtn(1,1);
+    if(page>3) makeBtn('…',null);
+    for(let i=Math.max(2,page-1);i<=Math.min(pages-1,page+1);i++) makeBtn(i,i);
+    if(page<pages-2) makeBtn('…',null);
+    makeBtn(pages,pages);
+  }
+}
+
+function setFilter(name, el){
+  document.querySelectorAll('.fchip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  browseState.filter = name;
+  browseState.page = 1;
+  fetchBrowse();
+}
+
+function sortTable(key){
+  browseState.sort = key;
+  browseState.page = 1;
+  fetchBrowse();
+}
+
+async function openFromBrowse(idx){
+  showView('predict', document.querySelector('.nav-view-toggle:last-child .vt-btn.active') ||
+                      document.querySelectorAll('.nav-view-toggle')[1].querySelector('.vt-btn'));
+  document.querySelectorAll('.nav-view-toggle')[1].querySelectorAll('.vt-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.nav-view-toggle')[1].querySelector('.vt-btn').classList.add('active');
+  document.getElementById('view-browse').classList.remove('active');
+  document.getElementById('view-predict').classList.add('active');
+
+  document.getElementById('predict-loader').style.display = 'flex';
+
+  const data = await fetch(`/api/testset/${idx}?model=${APP.activeModel||''}`).then(r=>r.json());
+
+  document.getElementById('mol-smiles-display').textContent = data.smiles;
+  document.getElementById('mol-name-display').textContent =
+    `Test set · ${data.dataset} · ${data.model_used.toUpperCase()} · drag to rotate`;
+  document.getElementById('mol-mode-badge').textContent = 'Test set';
+  document.getElementById('mol-mode-badge').className = 'mch-badge test';
+  document.getElementById('gt-legend').style.display = 'flex';
+  document.getElementById('new-mol-note').style.display = 'none';
+
+  window._currentMeans = data.probs;
+  window._currentStds  = data.probs.map(() => 0);
+  window._currentGT    = data.labels;
+  window._isTestSet    = true;
+  chartRendered = false;
+  if(!document.getElementById('tp-chart').classList.contains('hidden')){
+    renderChart(true, data.labels);
+    chartRendered = true;
+  }
+
+  // update summary bars
+  updateSummaryBars(data.probs);
+
+  if(data.sdf){
+    const el = document.getElementById('predict-3d');
+    el.innerHTML = '';
+    document.getElementById('predict-loader').style.display = 'none';
+    const v = $3Dmol.createViewer(el, {backgroundColor:'#f0f4ff'});
+    v.addModel(data.sdf, 'sdf');
+    v.setStyle({},{stick:{radius:.12,colorscheme:'Jmol'},sphere:{scale:.22,colorscheme:'Jmol'}});
+    v.zoomTo(); v.spin('y',.4); v.render();
+  } else {
+    document.getElementById('predict-loader').innerHTML =
+      '<span style="color:#9b9590;font-size:11px">3D unavailable</span>';
+  }
+}
+
+// ── 3Dmol fallback (PubChem CID) ──────────────
+async function load3D(containerId, loaderId, cid){
+  const loader = document.getElementById(loaderId);
+  if(loader) loader.style.display = 'flex';
+  if(!cid){ if(loader) loader.innerHTML='<span style="color:#9b9590;font-size:11px">No 3D data</span>'; return; }
+  try{
+    const r = await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/SDF?record_type=3d`);
+    if(!r.ok) throw new Error();
+    const sdf = await r.text();
+    const el = document.getElementById(containerId);
+    el.innerHTML = '';
+    if(loader) loader.style.display = 'none';
+    const v = $3Dmol.createViewer(el, {backgroundColor:'#f0f4ff'});
+    v.addModel(sdf,'sdf');
+    v.setStyle({},{stick:{radius:.12,colorscheme:'Jmol'},sphere:{scale:.22,colorscheme:'Jmol'}});
+    v.zoomTo(); v.spin('y',.4); v.render();
+  } catch(e){
+    if(loader) loader.innerHTML='<span style="color:#9b9590;font-size:11px">3D unavailable offline</span>';
+  }
+}
+
+// ── summary bars helper ────────────────────────
+function updateSummaryBars(means){
+  const top6 = [...means.map((v,i)=>({v,i}))]
+    .sort((a,b)=>b.v-a.v).slice(0,6);
+  const barsHtml = top6.map(({v,i}) => {
+    const col = v>=0.7 ? 'var(--green)' : v>=0.4 ? 'var(--blue-lt)' : 'var(--text-3)';
+    return `<div class="task-row">
+      <span class="task-name">${TASK_NAMES[i]||i}</span>
+      <div class="task-track"><div class="task-fill" style="width:${v*100}%;background:${col}"></div></div>
+      <span class="task-val" style="color:${col}">${v.toFixed(2)}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('task-bars-container').innerHTML = barsHtml;
+}
+
+// ── predict ────────────────────────────────────
+async function runPredict(){
+  const smiles = document.getElementById('smiles-inp').value.trim();
+  if(!smiles) return;
+
+  document.getElementById('predict-loader').style.display = 'flex';
+  document.getElementById('predict-loader').innerHTML =
+    '<div class="loader-ring"></div>predicting…';
+  document.getElementById('mol-mode-badge').textContent = 'Predicting…';
+
+  let data;
+  try{
+    const res = await fetch('/api/predict', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({smiles, n_mc:30, model: APP.activeModel||undefined}),
+    });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    data = await res.json();
+  } catch(e){
+    document.getElementById('predict-loader').innerHTML =
+      `<span style="color:#dc2626;font-size:11px">⚠ ${e.message}</span>`;
+    document.getElementById('mol-mode-badge').textContent = 'Error';
+    return;
+  }
+
+  document.getElementById('mol-smiles-display').textContent = smiles;
+  document.getElementById('mol-name-display').textContent =
+    `New prediction · ${data.model_used.toUpperCase()} · click and drag to rotate`;
+  document.getElementById('mol-mode-badge').textContent = 'New prediction';
+  document.getElementById('mol-mode-badge').className = 'mch-badge new';
+  document.getElementById('gt-legend').style.display = 'none';
+  document.getElementById('new-mol-note').style.display = 'flex';
+
+  document.getElementById('chip-max-auc').textContent = data.max_auc.toFixed(2);
+  document.getElementById('chip-mc-std').textContent = data.mc_std_mean.toFixed(3);
+  document.getElementById('chip-top-task').textContent = data.top_task;
+
+  window._currentMeans = data.means;
+  window._currentStds  = data.stds;
+  window._currentGT    = null;
+  window._isTestSet    = false;
+  chartRendered = false;
+  if(!document.getElementById('tp-chart').classList.contains('hidden')){
+    renderChart(false, null);
+    chartRendered = true;
+  }
+
+  updateSummaryBars(data.means);
+
+  if(data.sdf){
+    const el = document.getElementById('predict-3d');
+    el.innerHTML = '';
+    document.getElementById('predict-loader').style.display = 'none';
+    const v = $3Dmol.createViewer(el, {backgroundColor:'#f0f4ff'});
+    v.addModel(data.sdf,'sdf');
+    v.setStyle({},{stick:{radius:.12,colorscheme:'Jmol'},sphere:{scale:.22,colorscheme:'Jmol'}});
+    v.zoomTo(); v.spin('y',.4); v.render();
+  } else {
+    document.getElementById('predict-loader').innerHTML =
+      '<span style="color:#9b9590;font-size:11px">3D unavailable</span>';
+  }
+}
+
+// ── model toggle ───────────────────────────────
+function setModel(m, btn){
+  APP.activeModel = m;
+  document.querySelectorAll('#model-toggle .vt-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(document.getElementById('view-predict').classList.contains('active')){
+    const smiles = document.getElementById('smiles-inp').value.trim();
+    if(smiles) runPredict();
+  } else {
+    fetchBrowse();
+  }
+}
+
+// ── boot ───────────────────────────────────────
+async function boot(){
+  const info = await fetch('/api/info').then(r=>r.json());
+  TASK_NAMES = info.task_names;
+  APP.taskNames   = info.task_names;
+  APP.taskGroups  = info.task_groups;
+  APP.dsColors    = info.dataset_colors;
+  APP.models      = info.available_models;
+  APP.activeModel = info.default_model;
+
+  // build DS_COLORS array parallel to task_names
+  DS_COLORS = [];
+  for(const [ds, tasks] of Object.entries(info.task_groups)){
+    const col = info.dataset_colors[ds] || '#64748b';
+    tasks.forEach(() => DS_COLORS.push(col));
+  }
+
+  // model toggle pills (only if >1 model)
+  const toggle = document.getElementById('model-toggle');
+  if(info.available_models.length > 1){
+    toggle.innerHTML = info.available_models.map(m =>
+      `<button class="vt-btn ${m===APP.activeModel?'active':''}"
+         onclick="setModel('${m}',this)">${m.toUpperCase()}</button>`
+    ).join('');
+    toggle.style.display = 'flex';
+  }
+
+  // filter chips
+  const chips = document.getElementById('filter-chips');
+  chips.innerHTML = `<div class="fchip active all" onclick="setFilter('all',this)">All</div>` +
+    Object.keys(info.task_groups).map(ds =>
+      `<div class="fchip ${ds}" onclick="setFilter('${ds}',this)">${ds}</div>`
+    ).join('');
+
+  // initial browse load
+  fetchBrowse();
+}
+
+boot();
+</script>
+</body>
+</html>
