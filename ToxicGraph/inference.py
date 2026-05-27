@@ -7,7 +7,7 @@ from src.featurizer import smiles_to_graph
 from src.calibration import mc_sample
 
 
-def predict(smiles_list, n_mc=30, ensemble=None, task_names=None, temperature=None,
+def predict(smiles_list, n_mc=20, ensemble=None, task_names=None, temperature=None,
             config=None, device=None, model_dir='.'):
     """
     Returns (means, stds, task_names).
@@ -37,6 +37,7 @@ def predict(smiles_list, n_mc=30, ensemble=None, task_names=None, temperature=No
             means.append(None)
             stds.append(None)
             continue
+        data = data.clone()  # don't mutate the lru_cache'd object
         data.batch = torch.zeros(data.x.shape[0], dtype=torch.long)
         data = data.to(device)
         mean_logits, std_logits = mc_sample(ensemble, data, n_samples=n_mc)

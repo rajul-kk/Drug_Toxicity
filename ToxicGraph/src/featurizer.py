@@ -1,6 +1,9 @@
 
+import hashlib
+import inspect as _inspect
 import numpy as np
 import torch
+from functools import lru_cache
 from torch_geometric.data import Data
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem
@@ -105,6 +108,7 @@ def _compute_angle_features(mol, pos):
     return torch.tensor(feats, dtype=torch.float)  # (N, 2)
 
 
+@lru_cache(maxsize=1024)
 def smiles_to_graph(smiles):
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
@@ -152,3 +156,15 @@ def smiles_to_graph(smiles):
     edge_attr = torch.nan_to_num(edge_attr, nan=0.0, posinf=0.0, neginf=0.0)
 
     return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+
+
+def _compute_featurizer_hash() -> str:
+    src = (
+        _inspect.getsource(get_atom_features) +
+        _inspect.getsource(get_bond_features) +
+        _inspect.getsource(smiles_to_graph)
+    )
+    return hashlib.sha256(src.encode()).hexdigest()[:8]
+
+
+FEATURIZER_HASH = _compute_featurizer_hash()

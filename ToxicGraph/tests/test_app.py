@@ -15,6 +15,10 @@ def client():
         'max_conf': [0.9, 0.7],
         'score_per_mol': [0.85, 0.72],
         'temperature': 1.0,
+        'idx': {
+            'all': {'conf': [0, 1], 'score': [0, 1]},
+            'tox21': {'conf': [0, 1], 'score': [0, 1]},
+        },
     }
     mock_ens = MagicMock()
     import app as app_module

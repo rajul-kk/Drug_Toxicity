@@ -5,7 +5,7 @@ import shutil
 import pandas as pd
 import torch
 from torch_geometric.data import InMemoryDataset, download_url
-from src.featurizer import smiles_to_graph
+from src.featurizer import smiles_to_graph, FEATURIZER_HASH
 from tqdm import tqdm
 
 TOX21_TASKS = [
@@ -132,7 +132,7 @@ class ToxicDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [f'{self.name}_v8.pt']
+        return [f'{self.name}_{FEATURIZER_HASH}.pt']
 
     def download(self):
         cfg = DATASET_CONFIGS.get(self.name)
@@ -214,7 +214,7 @@ class MultiToxDataset(InMemoryDataset):
     @property
     def processed_file_names(self):
         key = '_'.join(self.names)
-        return [f'multi_{key}_v2.pt']
+        return [f'multi_{key}_{FEATURIZER_HASH}.pt']
 
     def download(self):
         for n in self.names:

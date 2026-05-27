@@ -68,15 +68,33 @@ def _load_available_ensembles(config, device):
             else:
                 scores.append(0.0)
 
+        n = len(smiles_list)
+        max_conf_list = probs.max(axis=1).tolist()
+        datasets_seen = list(dict.fromkeys(source_list))
+
+        def _sorted_idx(vals):
+            return sorted(range(n), key=lambda i: -vals[i])
+
+        idx_conf  = _sorted_idx(max_conf_list)
+        idx_score = _sorted_idx(scores)
+
+        def _filter(idx_sorted, ds):
+            return [i for i in idx_sorted if source_list[i] == ds]
+
         ensembles[arch] = ens
         test_caches[arch] = {
             'smiles':       smiles_list,
             'probs':        probs,
             'labels':       labels,
             'dataset':      source_list,
-            'max_conf':     probs.max(axis=1).tolist(),
+            'max_conf':     max_conf_list,
             'score_per_mol': scores,
             'temperature':  temperature,
+            'idx': {
+                'all': {'conf': idx_conf, 'score': idx_score},
+                **{ds: {'conf': _filter(idx_conf, ds), 'score': _filter(idx_score, ds)}
+                   for ds in datasets_seen},
+            },
         }
 
     return ensembles, test_caches
@@ -104,6 +122,15 @@ async def lifespan(app: FastAPI):
     app.state.default_model = config['model'].get('type', 'gnn')
     app.state.device       = device
     app.state.executor     = ThreadPoolExecutor(max_workers=1)
+
+    # warm smiles_to_sdf lru_cache after server is live — daemon so it doesn't block shutdown
+    import threading
+    _all_smiles = list({s for cache in test_caches.values() for s in cache['smiles']})
+    threading.Thread(
+        target=lambda: [smiles_to_sdf(s) for s in _all_smiles],
+        daemon=True,
+    ).start()
+
     yield
     app.state.executor.shutdown(wait=False)
 
@@ -145,7 +172,7 @@ def api_info(request: Request):
 
 class PredictRequest(BaseModel):
     smiles: str
-    n_mc:   int = 30
+    n_mc:   int = 20
     model:  Optional[str] = None
 
 
@@ -202,19 +229,12 @@ def api_testset(request: Request, model: Optional[str] = None, page: int = 1,
         model_key = next(iter(s.test_caches))
     cache = s.test_caches[model_key]
 
-    indices = list(range(len(cache['smiles'])))
-    if filter != 'all':
-        indices = [i for i in indices if cache['dataset'][i] == filter]
+    idx_group = cache['idx'].get(filter, cache['idx']['all'])
+    idx_list  = idx_group.get(sort, idx_group['conf'])
 
-    sort_map = {
-        'conf':  lambda i: -cache['max_conf'][i],
-        'score': lambda i: -cache['score_per_mol'][i],
-    }
-    indices.sort(key=sort_map.get(sort, sort_map['conf']))
-
-    total = len(indices)
+    total = len(idx_list)
     start = (page - 1) * per_page
-    page_slice = indices[start:start + per_page]
+    page_slice = idx_list[start:start + per_page]
 
     rows = [{
         'idx':     i,

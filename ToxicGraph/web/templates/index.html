@@ -421,7 +421,7 @@ async function runPredict(){
     const res = await fetch('/api/predict', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({smiles, n_mc:30, model: APP.activeModel||undefined}),
+      body:JSON.stringify({smiles, n_mc:20, model: APP.activeModel||undefined}),
     });
     if(!res.ok){
       const err = await res.json().catch(()=>({}));
