@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import yaml
@@ -8,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
@@ -156,6 +158,23 @@ templates = Jinja2Templates(directory='web/templates')
 @app.get('/health')
 def health():
     return {'status': 'ok'}
+
+
+# ── thumbnail ─────────────────────────────────────────────────────────────────
+
+@app.get('/api/thumbnail/{smiles:path}')
+def api_thumbnail(smiles: str, size: int = 80):
+    from rdkit import Chem
+    from rdkit.Chem import Draw
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise HTTPException(404, 'Invalid SMILES')
+    img = Draw.MolToImage(mol, size=(size, size), kekulize=True)
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    buf.seek(0)
+    return Response(content=buf.read(), media_type='image/png',
+                    headers={'Cache-Control': 'public, max-age=86400'})
 
 
 # ── index ─────────────────────────────────────────────────────────────────────
