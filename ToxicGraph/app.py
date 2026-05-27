@@ -8,12 +8,18 @@ from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
+load_dotenv()
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.requests import Request
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from src.models import build_and_load_ensemble
 from src.dataset import DATASET_CONFIGS
@@ -115,7 +121,8 @@ def _load_available_ensembles(config, device):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    with open('config.yaml') as f:
+    config_path = os.getenv('CONFIG_PATH', 'config.yaml')
+    with open(config_path) as f:
         config = yaml.safe_load(f)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -148,7 +155,20 @@ async def lifespan(app: FastAPI):
     app.state.executor.shutdown(wait=False)
 
 
+limiter = Limiter(
+    key_func=get_remote_address,
+    enabled=os.getenv('RATE_LIMIT', 'true').lower() == 'true',
+)
+
 app = FastAPI(lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv('CORS_ORIGINS', '*').split(','),
+    allow_methods=['GET', 'POST'],
+    allow_headers=['*'],
+)
 app.mount('/static', StaticFiles(directory='web/static'), name='static')
 templates = Jinja2Templates(directory='web/templates')
 
@@ -163,7 +183,8 @@ def health():
 # ── thumbnail ─────────────────────────────────────────────────────────────────
 
 @app.get('/api/thumbnail/{smiles:path}')
-def api_thumbnail(smiles: str, size: int = 80):
+@limiter.limit('60/minute')
+def api_thumbnail(smiles: str, request: Request, size: int = 80):
     from rdkit import Chem
     from rdkit.Chem import Draw
     mol = Chem.MolFromSmiles(smiles)
@@ -207,6 +228,7 @@ class PredictRequest(BaseModel):
 
 
 @app.post('/api/predict')
+@limiter.limit('20/minute')
 def api_predict(req: PredictRequest, request: Request):
     import concurrent.futures
     s = request.app.state
@@ -308,4 +330,9 @@ def api_testset_single(idx: int, request: Request, model: Optional[str] = None):
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run('app:app', host='0.0.0.0', port=8000, reload=True)
+    uvicorn.run(
+        'app:app',
+        host=os.getenv('HOST', '0.0.0.0'),
+        port=int(os.getenv('PORT', 8000)),
+        reload=os.getenv('DEV', 'false').lower() == 'true',
+    )
