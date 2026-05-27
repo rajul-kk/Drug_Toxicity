@@ -176,8 +176,8 @@ def build_and_load_ensemble(config, device, model_dir='.'):
         m.load_state_dict(torch.load(path, map_location=device))
         m.eval()
         try:
-            import torch._dynamo
-            torch._dynamo.config.suppress_errors = True
+            import torch._dynamo as _dynamo
+            _dynamo.config.suppress_errors = True
             m = torch.compile(m, mode='reduce-overhead')
         except Exception:
             pass

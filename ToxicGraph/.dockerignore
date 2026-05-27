@@ -1,0 +1,22 @@
+.venv/
+.git/
+.superpowers/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# large runtime data — mounted as volumes
+data/
+checkpoints/
+
+# dev/demo files not needed in the image
+notebooks/
+tests/
+demo_*.html
+explanations/
+*.png
+*.log
+log.txt
+train_log.txt
+src/results.txt

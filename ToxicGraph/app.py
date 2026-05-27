@@ -1,3 +1,4 @@
+import json
 import os
 import yaml
 import torch
@@ -49,12 +50,22 @@ def _load_available_ensembles(config, device):
         temperature = float(torch.load(temp_path, map_location='cpu')) \
                       if os.path.exists(temp_path) else 1.0
 
-        test_dataset, _ = load_test_dataset(config)
-        probs, labels = collect_predictions(ens, test_dataset, device, temperature)
-
-        smiles_list = test_dataset.smiles_list
-        source_list = test_dataset.source_list if hasattr(test_dataset, 'source_list') \
-                      else [config['dataset'].get('names', ['unknown'])[0]] * len(smiles_list)
+        _cp = lambda f: os.path.join(model_dir, f)
+        if all(os.path.exists(_cp(f)) for f in
+               ('test_probs.npy', 'test_labels.npy', 'test_smiles.json', 'test_sources.json')):
+            probs       = np.load(_cp('test_probs.npy'))
+            labels      = np.load(_cp('test_labels.npy'))
+            smiles_list = json.load(open(_cp('test_smiles.json')))
+            source_list = json.load(open(_cp('test_sources.json')))
+            print(f'  {arch}: loaded precomputed cache ({len(smiles_list)} molecules)')
+        else:
+            test_dataset, _ = load_test_dataset(config)
+            probs, labels = collect_predictions(ens, test_dataset, device, temperature)
+            smiles_list = test_dataset.smiles_list
+            source_list = test_dataset.source_list if hasattr(test_dataset, 'source_list') \
+                          else [config['dataset'].get('names', ['unknown'])[0]] * len(smiles_list)
+            print(f'  {arch}: ran batch inference ({len(smiles_list)} molecules)'
+                  f' — run precompute_cache.py to speed up future startups')
         n_tasks = probs.shape[1]
         scores = []
         for mol_idx in range(len(smiles_list)):

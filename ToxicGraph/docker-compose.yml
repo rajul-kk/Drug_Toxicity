@@ -1,0 +1,13 @@
+services:
+  toxicgraph:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # model weights + precomputed cache (test_probs.npy etc.)
+      - ./checkpoints:/app/checkpoints
+      # raw + processed dataset files (not needed if precompute_cache.py was run)
+      - ./data:/app/data
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
