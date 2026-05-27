@@ -48,12 +48,13 @@
       ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
       ctx.fillStyle=`rgba(${r},${g},${b},.7)`;ctx.fill();
     }
-    requestAnimationFrame(tick);
+    if(!document.hidden) requestAnimationFrame(tick);
   }
 
   window.addEventListener('resize',()=>{resize();});
   window.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;});
   window.addEventListener('mouseleave',()=>{mouse.x=-9999;mouse.y=-9999;});
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) requestAnimationFrame(tick); });
   resize();
   particles=Array.from({length:COUNT},mkParticle);
   tick();

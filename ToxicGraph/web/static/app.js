@@ -2,6 +2,7 @@
 let TASK_NAMES = [];
 let DS_COLORS  = [];
 let APP = {};
+let isPredicting = false;
 
 // ── view switching ─────────────────────────────
 function showView(name, btn){
@@ -17,6 +18,7 @@ function showView(name, btn){
 
 // ── task tab switching ─────────────────────────
 let chartRendered = false;
+let tableRendered = false;
 function switchTaskTab(name, btn){
   document.querySelectorAll('.tp-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tp-body').forEach(b=>b.classList.add('hidden'));
@@ -26,6 +28,27 @@ function switchTaskTab(name, btn){
     renderChart(window._isTestSet || false, window._currentGT || null);
     chartRendered = true;
   }
+  if(name==='table' && !tableRendered){
+    renderTable();
+    tableRendered = true;
+  }
+}
+
+function toggleMissingLabels(){
+  chartRendered = false;
+  renderChart(window._isTestSet || false, window._currentGT || null);
+  chartRendered = true;
+}
+
+function copySmiles(el){
+  const text = el.textContent.trim();
+  if(!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = el.textContent;
+    el.textContent = 'Copied!';
+    el.style.color = 'var(--green)';
+    setTimeout(() => { el.textContent = orig; el.style.color = ''; }, 1200);
+  });
 }
 
 // ── plotly chart ───────────────────────────────
@@ -60,6 +83,7 @@ function renderChart(isTestSet, gt){
   }
 
   if(isTestSet && gt){
+    const showMissing = document.getElementById('show-missing-cb')?.checked || false;
     const gtX_pos=[], gtX_neg=[], gtX_mis=[];
     const gtY_pos=[], gtY_neg=[], gtY_mis=[];
     gt.forEach((v,i)=>{
@@ -71,8 +95,10 @@ function renderChart(isTestSet, gt){
       marker:{symbol:'diamond',size:8,color:'#dc2626'},hovertemplate:'<b>%{x}</b><br>GT: positive<extra></extra>'});
     traces.push({type:'scatter',mode:'markers',x:gtX_neg,y:gtY_neg,name:'GT negative',
       marker:{symbol:'circle',size:7,color:'#9b9590'},hovertemplate:'<b>%{x}</b><br>GT: negative<extra></extra>'});
-    traces.push({type:'scatter',mode:'markers',x:gtX_mis,y:gtY_mis,name:'Missing',
-      marker:{symbol:'x',size:7,color:'#b45309'},hovertemplate:'<b>%{x}</b><br>GT: missing<extra></extra>'});
+    if(showMissing){
+      traces.push({type:'scatter',mode:'markers',x:gtX_mis,y:gtY_mis,name:'Missing',
+        marker:{symbol:'x',size:6,color:'#b45309'},hovertemplate:'<b>%{x}</b><br>GT: not in dataset<extra></extra>'});
+    }
   }
 
   const shapes = [], annotations = [];
@@ -93,15 +119,15 @@ function renderChart(isTestSet, gt){
 
   const layout = {
     paper_bgcolor:'transparent', plot_bgcolor:'transparent',
-    margin:{t:10,b:80,l:30,r:10},
-    height:300,
+    margin:{t:14,b:140,l:34,r:10},
+    height:360,
     barmode: window._compareMode ? 'group' : 'relative',
-    xaxis:{tickangle:-45,tickfont:{size:9,family:'JetBrains Mono',color:'#9b9590'},
+    xaxis:{tickangle:-55,tickfont:{size:8,family:'JetBrains Mono',color:'#9b9590'},
            gridcolor:'rgba(0,0,0,.05)',zeroline:false},
-    yaxis:{range:[0,1.1],gridcolor:'rgba(0,0,0,.06)',zeroline:false,
+    yaxis:{range:[0,1.12],gridcolor:'rgba(0,0,0,.06)',zeroline:false,
            tickfont:{size:10,family:'JetBrains Mono',color:'#9b9590'}},
     shapes, annotations,
-    legend:{orientation:'h',y:-0.35,font:{size:10,family:'DM Sans'}},
+    legend:{orientation:'h',y:-0.52,font:{size:10,family:'DM Sans'}},
     showlegend: isTestSet || window._compareMode,
     hovermode:'closest',
     font:{family:'DM Sans'},
@@ -216,6 +242,22 @@ async function openFromBrowse(idx){
     return;
   }
 
+  const needsRender = data.smiles !== window._renderedSmiles;
+
+  const topProb = Math.max(...data.probs);
+  const topIdx  = data.probs.indexOf(topProb);
+  document.getElementById('chip-max-auc').textContent = topProb.toFixed(3);
+  document.getElementById('chip-max-auc').style.fontSize = '';
+  const lbl = document.getElementById('chip-max-auc-lbl');
+  if(lbl) lbl.textContent = 'Top Prob';
+  document.getElementById('chip-mc-std').textContent = '0.000';
+  document.getElementById('chip-top-task').textContent = TASK_NAMES[topIdx] || '—';
+
+  window._compareMode   = false;
+  window._currentMeansB = null;
+  window._currentStdsB  = null;
+  window._renderedSmiles = data.smiles;
+
   document.getElementById('mol-smiles-display').textContent = data.smiles;
   document.getElementById('mol-name-display').textContent =
     `Test set · ${data.dataset} · ${data.model_used.toUpperCase()} · drag to rotate`;
@@ -223,26 +265,81 @@ async function openFromBrowse(idx){
   document.getElementById('mol-mode-badge').className = 'mch-badge test';
   document.getElementById('gt-legend').style.display = 'flex';
   document.getElementById('new-mol-note').style.display = 'none';
+  document.getElementById('missing-toggle-wrap').style.display = 'flex';
 
   window._currentMeans = data.probs;
   window._currentStds  = data.probs.map(() => 0);
   window._currentGT    = data.labels;
   window._isTestSet    = true;
   chartRendered = false;
+  tableRendered = false;
   if(!document.getElementById('tp-chart').classList.contains('hidden')){
     renderChart(true, data.labels);
     chartRendered = true;
   }
+  if(!document.getElementById('tp-table').classList.contains('hidden')){
+    renderTable();
+    tableRendered = true;
+  }
 
   updateSummaryBars(data.probs);
+  document.getElementById('tp-export-btn').style.display = '';
 
   if(data.sdf){
+    if(needsRender) init3dViewer(document.getElementById('predict-3d'), data.sdf);
     document.getElementById('predict-loader').style.display = 'none';
-    init3dViewer(document.getElementById('predict-3d'), data.sdf);
   } else {
     document.getElementById('predict-loader').innerHTML =
       '<span style="color:#9b9590;font-size:11px">3D unavailable</span>';
   }
+}
+
+// ── comparison table ───────────────────────────
+function renderTable(){
+  const means = window._currentMeans || [];
+  if(!means.length){
+    document.getElementById('task-table-container').innerHTML =
+      '<div style="color:var(--text-3);font-size:12px;padding:8px 0">Run a prediction to see results.</div>';
+    return;
+  }
+  const meansB = window._compareMode ? (window._currentMeansB || null) : null;
+  const gt = window._isTestSet ? (window._currentGT || null) : null;
+  const labelA = (APP.models && APP.models[0]) ? APP.models[0].toUpperCase() : 'Model';
+  const labelB = (APP.models && APP.models[1]) ? APP.models[1].toUpperCase() : 'Model B';
+
+  const indices = means.map((_,i)=>i).sort((a,b)=>means[b]-means[a]);
+
+  let head = `<tr><th>#</th><th>Task</th><th>${labelA}</th>`;
+  if(meansB) head += `<th>${labelB}</th><th>Δ</th>`;
+  if(gt) head += `<th>GT</th>`;
+  head += '</tr>';
+
+  const rows = indices.map((i,rank) => {
+    const gnn = means[i];
+    const dmpnn = meansB ? meansB[i] : null;
+    const delta = dmpnn != null ? dmpnn - gnn : null;
+    const gtVal = gt ? gt[i] : null;
+    const gnnCol = gnn>=0.7?'var(--red)':gnn>=0.5?'var(--amber)':'var(--text-3)';
+    const dmpnnCol = dmpnn!=null?(dmpnn>=0.7?'var(--red)':dmpnn>=0.5?'var(--amber)':'var(--text-3)'):'';
+    const deltaCol = delta!=null?(delta>0.05?'var(--green-lt)':delta<-0.05?'var(--red)':'var(--text-3)'):'';
+    let gtCell = '';
+    if(gt){
+      if(gtVal===1) gtCell = `<td><span style="color:var(--red);font-weight:700">◆ pos</span></td>`;
+      else if(gtVal===0) gtCell = `<td><span style="color:var(--text-3)">● neg</span></td>`;
+      else gtCell = `<td><span style="color:var(--text-3);opacity:.5">—</span></td>`;
+    }
+    return `<tr>
+      <td class="tc-rank">${rank+1}</td>
+      <td class="tc-task">${TASK_NAMES[i]||i}</td>
+      <td class="tc-prob" style="color:${gnnCol}">${gnn.toFixed(3)}</td>
+      ${dmpnn!=null?`<td class="tc-prob" style="color:${dmpnnCol}">${dmpnn.toFixed(3)}</td>
+        <td class="tc-delta" style="color:${deltaCol}">${delta>=0?'+':''}${delta.toFixed(3)}</td>`:''}
+      ${gtCell}
+    </tr>`;
+  }).join('');
+
+  document.getElementById('task-table-container').innerHTML =
+    `<div class="tc-scroll"><table class="task-compare-table"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`;
 }
 
 // ── summary bars helper ────────────────────────
@@ -260,6 +357,34 @@ function updateSummaryBars(means){
   document.getElementById('task-bars-container').innerHTML = barsHtml;
 }
 
+// ── csv export ─────────────────────────────────
+function exportCSV(){
+  const means = window._currentMeans || [];
+  if(!means.length) return;
+  const meansB = window._compareMode ? window._currentMeansB : null;
+  const gt = window._isTestSet ? window._currentGT : null;
+  const smiles = document.getElementById('mol-smiles-display').textContent.trim();
+
+  const headers = ['rank', 'task', (APP.models && APP.models[0]) ? APP.models[0].toUpperCase() : 'prob'];
+  if(meansB) headers.push((APP.models && APP.models[1]) ? APP.models[1].toUpperCase() : 'prob_b', 'delta');
+  if(gt) headers.push('ground_truth');
+
+  const indices = means.map((_,i)=>i).sort((a,b)=>means[b]-means[a]);
+  const rows = indices.map((i, rank) => {
+    const row = [rank+1, TASK_NAMES[i]||i, means[i].toFixed(4)];
+    if(meansB) row.push(meansB[i].toFixed(4), (meansB[i]-means[i]).toFixed(4));
+    if(gt) row.push(gt[i]===1 ? 'positive' : gt[i]===0 ? 'negative' : 'missing');
+    return row.join(',');
+  });
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `toxicgraph_${smiles.slice(0,20).replace(/[^a-zA-Z0-9]/g,'_')}.csv`;
+  a.click();
+}
+
 // ── dual-model prediction helper ───────────────
 async function fetchPrediction(smiles, model){
   const r = await fetch('/api/predict', {
@@ -273,8 +398,12 @@ async function fetchPrediction(smiles, model){
 
 // ── predict ────────────────────────────────────
 async function runPredict(){
+  if(isPredicting) return;
   const smiles = document.getElementById('smiles-inp').value.trim();
   if(!smiles) return;
+  isPredicting = true;
+  const queryBtn = document.querySelector('.query-btn');
+  if(queryBtn) queryBtn.disabled = true;
 
   if(!document.getElementById('view-predict').classList.contains('active')){
     showView('predict', document.querySelector('#view-toggle .vt-btn'));
@@ -300,6 +429,8 @@ async function runPredict(){
     document.getElementById('predict-loader').innerHTML =
       `<span style="color:#dc2626;font-size:11px">⚠ ${e.message}</span>`;
     document.getElementById('mol-mode-badge').textContent = 'Error';
+    isPredicting = false;
+    if(queryBtn) queryBtn.disabled = false;
     return;
   }
 
@@ -313,8 +444,18 @@ async function runPredict(){
   document.getElementById('mol-mode-badge').className = 'mch-badge new';
   document.getElementById('gt-legend').style.display = 'none';
   document.getElementById('new-mol-note').style.display = 'flex';
+  document.getElementById('missing-toggle-wrap').style.display = 'none';
 
-  document.getElementById('chip-max-auc').textContent = data.max_auc.toFixed(2);
+  const topProbA = data.max_auc.toFixed(3);
+  const topProbDisplay = compareMode && dataB
+    ? `${topProbA} / ${dataB.max_auc.toFixed(3)}`
+    : topProbA;
+  document.getElementById('chip-max-auc').textContent = topProbDisplay;
+  document.getElementById('chip-max-auc').style.fontSize = compareMode && dataB ? '16px' : '';
+  const lbl = document.getElementById('chip-max-auc-lbl');
+  if(lbl) lbl.textContent = compareMode && dataB
+    ? `Top Prob (${APP.models.map(m=>m.toUpperCase()).join(' / ')})`
+    : 'Top Prob';
   document.getElementById('chip-mc-std').textContent = data.mc_std_mean.toFixed(3);
   document.getElementById('chip-top-task').textContent = data.top_task;
 
@@ -326,20 +467,31 @@ async function runPredict(){
   window._isTestSet     = false;
   window._compareMode   = compareMode;
   chartRendered = false;
+  tableRendered = false;
   if(!document.getElementById('tp-chart').classList.contains('hidden')){
     renderChart(false, null);
     chartRendered = true;
+  }
+  if(!document.getElementById('tp-table').classList.contains('hidden')){
+    renderTable();
+    tableRendered = true;
   }
 
   updateSummaryBars(data.means);
 
   if(data.sdf){
+    if(smiles !== window._renderedSmiles){
+      window._renderedSmiles = smiles;
+      init3dViewer(document.getElementById('predict-3d'), data.sdf);
+    }
     document.getElementById('predict-loader').style.display = 'none';
-    init3dViewer(document.getElementById('predict-3d'), data.sdf);
   } else {
     document.getElementById('predict-loader').innerHTML =
       '<span style="color:#9b9590;font-size:11px">3D unavailable</span>';
   }
+  document.getElementById('tp-export-btn').style.display = '';
+  isPredicting = false;
+  if(queryBtn) queryBtn.disabled = false;
 }
 
 // ── model toggle ───────────────────────────────
@@ -373,15 +525,6 @@ async function boot(){
     for(const [ds, tasks] of Object.entries(info.task_groups)){
       const col = info.dataset_colors[ds] || '#64748b';
       tasks.forEach(() => DS_COLORS.push(col));
-    }
-
-    const toggle = document.getElementById('model-toggle');
-    if(info.available_models.length > 1){
-      toggle.innerHTML = info.available_models.map(m =>
-        `<button class="vt-btn ${m===APP.activeModel?'active':''}"
-           onclick="setModel('${m}',this)">${m.toUpperCase()}</button>`
-      ).join('');
-      toggle.style.display = 'flex';
     }
 
     const chips = document.getElementById('filter-chips');

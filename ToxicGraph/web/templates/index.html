@@ -11,7 +11,7 @@
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <link rel="stylesheet" href="/static/style.css?v=4">
 <link rel="stylesheet" href="/static/landing.css?v=1">
-<link rel="stylesheet" href="/static/app.css?v=1">
+<link rel="stylesheet" href="/static/app.css?v=3">
 <script src="/static/particles.js" defer></script>
 <script src="/static/viewer.js" defer></script>
 <script src="/static/app.js" defer></script>
@@ -41,9 +41,9 @@
 <div class="view active" id="view-home">
   <section class="hero">
     <div class="hero-text">
-      <div class="eyebrow" id="hero-eyebrow">Ensemble GNN · 3 datasets · 41 tasks</div>
+      <div class="eyebrow" id="hero-eyebrow">GNN + DMPNN Ensemble · 3 datasets · 41 tasks</div>
       <h1>Predicting<br><em>molecular harm</em><br>at atomic scale.</h1>
-      <p>Graph neural networks trained on nuclear receptor activity, clinical trial toxicity, and drug side-effect profiles — combined in a calibrated ensemble with MC dropout uncertainty.</p>
+      <p>GNN and DMPNN neural networks trained on nuclear receptor activity, clinical trial toxicity, and drug side-effect profiles — combined in a calibrated ensemble with MC dropout uncertainty.</p>
       <div class="hero-stats" id="hero-stats">
         <div class="hs-item"><div class="hs-num g" id="hs-tasks">—</div><div class="hs-label">Tasks</div></div>
         <div class="hs-item"><div class="hs-num p" id="hs-datasets">—</div><div class="hs-label">Datasets</div></div>
@@ -73,7 +73,7 @@
         <div class="loader" id="hero-loader"><div class="loader-ring"></div>loading 3D…</div>
       </div>
       <div class="hmp-footer">
-        <div class="hmp-smiles">CC(=O)Nc1ccc(O)cc1</div>
+        <div class="hmp-smiles" id="hero-smiles" onclick="copySmiles(this)" title="Click to copy">CC(=O)Nc1ccc(O)cc1</div>
         <div class="hmp-badges" id="hero-badges">
           <span class="badge g">tox21</span>
           <span class="badge p">clintox</span>
@@ -104,7 +104,7 @@
         </div>
       </div>
       <div class="mol-footer">
-        <div class="mol-smiles" id="mol-smiles-display"></div>
+        <div class="mol-smiles" id="mol-smiles-display" onclick="copySmiles(this)" title="Click to copy SMILES"></div>
         <div class="mol-sub" id="mol-name-display">Enter a SMILES above and click Predict →</div>
       </div>
     </div>
@@ -116,7 +116,7 @@
       <div class="metric-strip">
         <div class="metric-chip g">
           <div class="mc-val g" id="chip-max-auc">—</div>
-          <div class="mc-lbl">Max AUC</div>
+          <div class="mc-lbl" id="chip-max-auc-lbl">Top Prob</div>
         </div>
         <div class="metric-chip p">
           <div class="mc-val p" id="chip-mc-std">—</div>
@@ -132,7 +132,9 @@
       <div class="task-panel">
         <div class="tp-tabs">
           <div class="tp-tab active" onclick="switchTaskTab('summary',this)">Summary</div>
-          <div class="tp-tab" onclick="switchTaskTab('chart',this)">All tasks ↓</div>
+          <div class="tp-tab" onclick="switchTaskTab('chart',this)">Chart</div>
+          <div class="tp-tab" onclick="switchTaskTab('table',this)">Table ↕</div>
+          <button class="tp-export-btn" id="tp-export-btn" onclick="exportCSV()" title="Download as CSV" style="display:none">↓ CSV</button>
         </div>
 
         <!-- SUMMARY TAB -->
@@ -142,26 +144,38 @@
           </div>
           <div class="unc-note">
             <div class="unc-icon"></div>
-            MC dropout · 20 forward passes · bars show mean · switch to "All tasks" for error bars
+            MC dropout · 20 forward passes · bars show mean · switch to "Chart" for error bars
           </div>
           <div class="expand-hint" onclick="switchTaskTab('chart', document.querySelectorAll('.tp-tab')[1])">
             Show all tasks with uncertainty <span>→</span>
           </div>
         </div>
 
-        <!-- ALL TASKS TAB (Chart) -->
+        <!-- CHART TAB -->
         <div class="tp-body hidden" id="tp-chart">
-          <div class="gt-legend" id="gt-legend" style="display:none">
-            <div class="gt-item"><span class="gt-sym" style="color:var(--red)">◆</span> Ground truth positive</div>
-            <div class="gt-item"><span class="gt-sym" style="color:var(--text-3)">●</span> Ground truth negative</div>
-            <div class="gt-item"><span class="gt-sym" style="color:var(--amber)">×</span> Missing label</div>
-            <div class="gt-item"><span style="font-size:11px;color:var(--text-3)">⊣⊢</span> MC uncertainty</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+            <div class="gt-legend" id="gt-legend" style="display:none">
+              <div class="gt-item"><span class="gt-sym" style="color:var(--red)">◆</span> GT positive</div>
+              <div class="gt-item"><span class="gt-sym" style="color:var(--text-3)">●</span> GT negative</div>
+              <div class="gt-item"><span style="font-size:11px;color:var(--text-3)">⊣⊢</span> MC uncertainty</div>
+            </div>
+            <label class="missing-toggle" id="missing-toggle-wrap" style="display:none">
+              <input type="checkbox" id="show-missing-cb" onchange="toggleMissingLabels()">
+              <span>show missing labels</span>
+            </label>
           </div>
           <div class="unc-note" id="new-mol-note" style="margin-bottom:8px">
             <div class="unc-icon"></div>
-            New molecule — no ground truth available. Error bars = MC dropout std (30 passes).
+            New molecule — no ground truth available. Error bars = MC dropout std.
           </div>
-          <div id="task-chart" style="width:100%;height:320px"></div>
+          <div id="task-chart" style="width:100%;height:360px"></div>
+        </div>
+
+        <!-- TABLE TAB -->
+        <div class="tp-body hidden" id="tp-table">
+          <div id="task-table-container" style="color:var(--text-3);font-size:12px;padding:8px 0">
+            Run a prediction to see results.
+          </div>
         </div>
       </div>
 
