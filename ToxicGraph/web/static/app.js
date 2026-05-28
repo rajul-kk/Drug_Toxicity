@@ -18,6 +18,8 @@ function showView(name, btn){
   document.body.classList.toggle('landing-mode', name === 'home');
   document.body.classList.toggle('app-mode', name !== 'home');
   document.getElementById('nav-query-bar').style.display = name==='home' ? 'none' : '';
+  const mt = document.getElementById('model-toggle');
+  if(mt) mt.style.display = (name === 'predict' && APP.models && APP.models.length > 1) ? '' : 'none';
   if(name === 'home') syncHashToUrl('');
   if(name==='browse' && APP.taskNames) fetchBrowse();
 }
@@ -71,16 +73,13 @@ function loadFromHash(){
 }
 
 // ── model toggle ───────────────────────────────
+// m === null means run all available models side-by-side (compare mode)
 function setModel(m, btn){
   APP.activeModel = m;
   document.querySelectorAll('#model-toggle .vt-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  if(document.getElementById('view-predict').classList.contains('active')){
-    const smiles = document.getElementById('smiles-inp').value.trim();
-    if(smiles) runPredict();
-  } else {
-    fetchBrowse();
-  }
+  const smiles = document.getElementById('smiles-inp').value.trim();
+  if(smiles) runPredict();
 }
 
 // ── boot ───────────────────────────────────────
@@ -95,7 +94,15 @@ async function boot(){
     APP.taskGroups  = info.task_groups;
     APP.dsColors    = info.dataset_colors;
     APP.models      = info.available_models;
-    APP.activeModel = info.default_model;
+    APP.activeModel = info.available_models.length > 1 ? null : info.default_model;
+
+    // populate model toggle (only rendered when predict view is active)
+    const mt = document.getElementById('model-toggle');
+    if(mt && APP.models.length > 1){
+      mt.innerHTML = APP.models.map(m =>
+        `<button class="vt-btn" onclick="setModel('${m}',this)">${m.toUpperCase()}</button>`
+      ).join('') + `<button class="vt-btn active" onclick="setModel(null,this)">Both</button>`;
+    }
 
     DS_COLORS = [];
     for(const [ds, tasks] of Object.entries(info.task_groups)){

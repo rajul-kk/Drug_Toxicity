@@ -175,12 +175,10 @@ def build_and_load_ensemble(config, device, model_dir='.'):
             m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim, task_dim=task_dim).to(device)
         m.load_state_dict(torch.load(path, map_location=device))
         m.eval()
-        try:
-            import torch._dynamo as _dynamo
-            _dynamo.config.suppress_errors = True
-            m = torch.compile(m, mode='reduce-overhead')
-        except Exception:
-            pass
+        # torch.compile is intentionally skipped: compiled wrappers store the
+        # original module via object.__setattr__, so nn.Module.modules() never
+        # recurses into the real submodules. enable_mc_dropout cannot reach
+        # nn.Dropout layers, all 20 MC passes are identical, and std = 0.
         models.append(m)
 
     return EnsembleGNN(models)

@@ -254,7 +254,7 @@ async function runPredict(){
   document.getElementById('mol-mode-badge').textContent = 'Predicting…';
 
   let data, dataB = null;
-  const compareMode = APP.models && APP.models.length > 1;
+  const compareMode = APP.activeModel === null && APP.models && APP.models.length > 1;
   try{
     if(compareMode){
       [data, dataB] = await Promise.all(
