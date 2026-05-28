@@ -164,3 +164,16 @@
   .browse-layout{padding:12px}
   .predict-layout{padding:12px}
 }
+
+/* ── molecular property strip ─────────────────── */
+.prop-strip{
+  display:flex;flex-wrap:wrap;gap:6px 12px;
+  padding:8px 12px;background:var(--surface2);
+  border-radius:10px;margin-bottom:10px;
+}
+.prop-item{display:flex;flex-direction:column;align-items:center;min-width:40px}
+.prop-lbl{font-size:9px;color:var(--text-3);font-family:var(--sans);text-transform:uppercase;letter-spacing:.04em}
+.prop-val{font-size:13px;font-weight:600;color:var(--text);font-family:var(--mono)}
+.prop-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;margin-top:4px}
+.prop-badge.pass{background:rgba(4,120,87,.12);color:var(--green)}
+.prop-badge.fail{background:rgba(220,38,38,.10);color:var(--red)}

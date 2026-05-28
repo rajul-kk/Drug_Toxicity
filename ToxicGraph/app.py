@@ -328,6 +328,35 @@ def api_testset_single(idx: int, request: Request, model: Optional[str] = None):
     }
 
 
+# ── /api/properties ───────────────────────────────────────────────────────────
+
+@app.get('/api/properties/{smiles:path}')
+@limiter.limit('60/minute')
+def api_properties(smiles: str, request: Request):
+    from rdkit import Chem
+    from rdkit.Chem import Descriptors, rdMolDescriptors
+    from rdkit.Chem.QED import qed
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise HTTPException(422, 'Invalid SMILES')
+    mw  = Descriptors.MolWt(mol)
+    logp = Descriptors.MolLogP(mol)
+    hbd  = rdMolDescriptors.CalcNumHBD(mol)
+    hba  = rdMolDescriptors.CalcNumHBA(mol)
+    return {
+        'mw':        round(mw, 2),
+        'logp':      round(logp, 2),
+        'tpsa':      round(Descriptors.TPSA(mol), 1),
+        'hbd':       hbd,
+        'hba':       hba,
+        'rot_bonds': rdMolDescriptors.CalcNumRotatableBonds(mol),
+        'rings':     rdMolDescriptors.CalcNumRings(mol),
+        'qed':       round(qed(mol), 3),
+        'formula':   rdMolDescriptors.CalcMolFormula(mol),
+        'lipinski':  mw <= 500 and logp <= 5 and hbd <= 5 and hba <= 10,
+    }
+
+
 # ── /api/search ───────────────────────────────────────────────────────────────
 
 @app.get('/api/search')

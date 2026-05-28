@@ -125,6 +125,20 @@ def test_search_invalid_smarts_returns_422(client):
     assert r.status_code == 422
 
 
+def test_properties_valid_smiles(client):
+    r = client.get('/api/properties/CC(=O)Nc1ccc(O)cc1')  # paracetamol
+    assert r.status_code == 200
+    d = r.json()
+    assert 'mw' in d and 'logp' in d and 'tpsa' in d and 'qed' in d and 'lipinski' in d
+    assert d['lipinski'] is True
+    assert 140 < d['mw'] < 160
+
+
+def test_properties_invalid_smiles(client):
+    r = client.get('/api/properties/not_valid!!!')
+    assert r.status_code == 422
+
+
 def test_search_no_match_returns_empty(client):
     # [Si] silicon — not present in mock cache (CCO, c1ccccc1)
     r = client.get('/api/search?smarts=[Si]')
