@@ -1,0 +1,202 @@
+{
+  "NR-AhR": {
+    "label": "Aryl hydrocarbon receptor",
+    "dataset": "tox21",
+    "desc": "A ligand-activated transcription factor. Activation induces CYP1A1/1B1 metabolism genes and is associated with dioxin-like toxicity and immunosuppression."
+  },
+  "NR-AR": {
+    "label": "Androgen receptor (full length)",
+    "dataset": "tox21",
+    "desc": "Steroid hormone receptor mediating male sex hormone signalling. Disruption linked to reproductive toxicity and endocrine interference."
+  },
+  "NR-AR-LBD": {
+    "label": "Androgen receptor ligand-binding domain",
+    "dataset": "tox21",
+    "desc": "Binding assay for the AR ligand-binding domain only. Compounds active here but not in the full-length assay may act through other receptor regions."
+  },
+  "NR-AhR-LBD": {
+    "label": "Aryl hydrocarbon receptor (LBD)",
+    "dataset": "tox21",
+    "desc": "Ligand-binding domain variant of the AhR assay. Used to identify direct ligands vs indirect activators."
+  },
+  "NR-ER": {
+    "label": "Estrogen receptor alpha (full length)",
+    "dataset": "tox21",
+    "desc": "Key estrogen receptor subtype. Agonists may mimic estrogen in vivo, raising concerns about reproductive and developmental toxicity."
+  },
+  "NR-ER-LBD": {
+    "label": "Estrogen receptor alpha (LBD)",
+    "dataset": "tox21",
+    "desc": "Ligand-binding domain binding assay for ERα. Identifies direct ER ligands with potential estrogenic activity."
+  },
+  "NR-PPAR-gamma": {
+    "label": "Peroxisome proliferator-activated receptor gamma",
+    "dataset": "tox21",
+    "desc": "Nuclear receptor regulating adipogenesis and glucose metabolism. Activation may indicate metabolic disruption; also a target for thiazolidinedione drugs."
+  },
+  "SR-ARE": {
+    "label": "Antioxidant response element",
+    "dataset": "tox21",
+    "desc": "Activated by oxidative or electrophilic stress via Nrf2. Induction signals cellular stress but also cytoprotective responses."
+  },
+  "SR-ATAD5": {
+    "label": "ATAD5 genotoxicity marker",
+    "dataset": "tox21",
+    "desc": "Upregulation of ATAD5 (a DNA repair regulator) indicates genotoxic stress. Used as a surrogate for DNA damage potential."
+  },
+  "SR-HSE": {
+    "label": "Heat shock element stress response",
+    "dataset": "tox21",
+    "desc": "Induced by proteotoxic stress that leads to protein misfolding. A broad marker for cytotoxic cellular stress."
+  },
+  "SR-MMP": {
+    "label": "Mitochondrial membrane potential",
+    "dataset": "tox21",
+    "desc": "Loss of MMP indicates mitochondrial dysfunction. Compounds active here may cause energy depletion and apoptosis."
+  },
+  "SR-p53": {
+    "label": "p53 tumour suppressor pathway",
+    "dataset": "tox21",
+    "desc": "Activation of p53 signalling indicates DNA damage or genotoxic stress. Relevant to mutagenicity and carcinogenicity assessment."
+  },
+  "FDA_APPROVED": {
+    "label": "FDA approved drug",
+    "dataset": "clintox",
+    "desc": "Compound appears in the FDA approved drug list. Provides positive context — approved drugs have passed clinical safety and efficacy review."
+  },
+  "CT_TOX": {
+    "label": "Clinical trial toxicity failure",
+    "dataset": "clintox",
+    "desc": "Compound failed clinical trials due to toxicity reasons. High probability here is a strong adverse signal based on real-world clinical data."
+  },
+  "Hepatobiliary disorders": {
+    "label": "Hepatobiliary disorders",
+    "dataset": "sider",
+    "desc": "Adverse events affecting the liver and bile duct reported in drug labelling. Includes hepatotoxicity, cholestasis, and liver enzyme elevations."
+  },
+  "Metabolism and nutrition disorders": {
+    "label": "Metabolism and nutrition disorders",
+    "dataset": "sider",
+    "desc": "Side effects related to metabolic processes — weight changes, hyperglycaemia, dyslipidaemia, and electrolyte imbalances."
+  },
+  "Product issues": {
+    "label": "Product issues",
+    "dataset": "sider",
+    "desc": "Adverse events related to the drug product itself (formulation, stability) rather than the active molecule."
+  },
+  "Eye disorders": {
+    "label": "Eye disorders",
+    "dataset": "sider",
+    "desc": "Ocular adverse effects including vision changes, retinopathy, and drug-induced eye inflammation."
+  },
+  "Investigations": {
+    "label": "Laboratory investigations",
+    "dataset": "sider",
+    "desc": "Abnormal clinical or laboratory findings reported as adverse events, such as elevated enzymes or abnormal ECG."
+  },
+  "Musculoskeletal and connective tissue disorders": {
+    "label": "Musculoskeletal disorders",
+    "dataset": "sider",
+    "desc": "Side effects affecting muscles, joints, and connective tissue. Includes myalgia, arthralgia, and rhabdomyolysis."
+  },
+  "Gastrointestinal disorders": {
+    "label": "Gastrointestinal disorders",
+    "dataset": "sider",
+    "desc": "GI side effects including nausea, vomiting, diarrhoea, and abdominal pain — among the most commonly reported drug adverse events."
+  },
+  "Social circumstances": {
+    "label": "Social circumstances",
+    "dataset": "sider",
+    "desc": "Social or lifestyle-related outcomes reported in drug labelling, such as substance use or social functioning changes."
+  },
+  "Immune system disorders": {
+    "label": "Immune system disorders",
+    "dataset": "sider",
+    "desc": "Adverse events related to immune activation or suppression, including hypersensitivity, allergic reactions, and autoimmune effects."
+  },
+  "Reproductive system and breast disorders": {
+    "label": "Reproductive system disorders",
+    "dataset": "sider",
+    "desc": "Side effects affecting the reproductive system — menstrual irregularities, fertility changes, and sexual dysfunction."
+  },
+  "Neoplasms benign, malignant and unspecified (incl cysts and polyps)": {
+    "label": "Neoplasms",
+    "dataset": "sider",
+    "desc": "Drug-associated tumour or neoplasm formation reported in clinical or post-marketing data."
+  },
+  "Psychiatric disorders": {
+    "label": "Psychiatric disorders",
+    "dataset": "sider",
+    "desc": "CNS psychiatric adverse effects including depression, anxiety, psychosis, and mood changes."
+  },
+  "Renal and urinary disorders": {
+    "label": "Renal and urinary disorders",
+    "dataset": "sider",
+    "desc": "Kidney and urinary tract side effects including nephrotoxicity, elevated creatinine, and urinary retention."
+  },
+  "Pregnancy, puerperium and perinatal conditions": {
+    "label": "Pregnancy and perinatal effects",
+    "dataset": "sider",
+    "desc": "Adverse effects during pregnancy or the perinatal period, including teratogenicity and effects on foetal development."
+  },
+  "Ear and labyrinth disorders": {
+    "label": "Ear and labyrinth disorders",
+    "dataset": "sider",
+    "desc": "Auditory and vestibular side effects including ototoxicity, tinnitus, and hearing loss."
+  },
+  "Cardiac disorders": {
+    "label": "Cardiac disorders",
+    "dataset": "sider",
+    "desc": "Cardiotoxic adverse effects including QT prolongation, arrhythmia, myocardial infarction, and heart failure."
+  },
+  "Vascular disorders": {
+    "label": "Vascular disorders",
+    "dataset": "sider",
+    "desc": "Adverse effects on blood vessels including hypertension, hypotension, thromboembolism, and vasculitis."
+  },
+  "Blood and lymphatic system disorders": {
+    "label": "Blood and lymphatic disorders",
+    "dataset": "sider",
+    "desc": "Haematological side effects including anaemia, thrombocytopenia, leucopenia, and coagulation abnormalities."
+  },
+  "Skin and subcutaneous tissue disorders": {
+    "label": "Skin and subcutaneous disorders",
+    "dataset": "sider",
+    "desc": "Dermatological adverse effects including rash, Stevens-Johnson syndrome, photosensitivity, and alopecia."
+  },
+  "Congenital, familial and genetic disorders": {
+    "label": "Congenital and genetic disorders",
+    "dataset": "sider",
+    "desc": "Adverse events related to genetic or developmental abnormalities — often associated with teratogenic compounds."
+  },
+  "Infections and infestations": {
+    "label": "Infections and infestations",
+    "dataset": "sider",
+    "desc": "Increased risk of infection, often due to immunosuppressive drug effects. Includes opportunistic infections."
+  },
+  "Respiratory, thoracic and mediastinal disorders": {
+    "label": "Respiratory disorders",
+    "dataset": "sider",
+    "desc": "Pulmonary adverse effects including dyspnoea, cough, pulmonary fibrosis, and bronchospasm."
+  },
+  "Surgical and medical procedures": {
+    "label": "Surgical and medical procedures",
+    "dataset": "sider",
+    "desc": "Adverse outcomes related to procedures that may be associated with the drug's use or its management."
+  },
+  "Endocrine disorders": {
+    "label": "Endocrine disorders",
+    "dataset": "sider",
+    "desc": "Side effects affecting hormone-secreting glands — thyroid dysfunction, adrenal suppression, and diabetes-related effects."
+  },
+  "General disorders and administration site conditions": {
+    "label": "General disorders",
+    "dataset": "sider",
+    "desc": "Non-specific adverse effects including fatigue, fever, oedema, and pain at the administration site."
+  },
+  "Nervous system disorders": {
+    "label": "Nervous system disorders",
+    "dataset": "sider",
+    "desc": "CNS and peripheral nervous system adverse effects including headache, neuropathy, seizures, and cognitive changes."
+  }
+}

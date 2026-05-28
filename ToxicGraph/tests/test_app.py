@@ -108,3 +108,27 @@ def test_predict_model_param_accepted(client):
         r = client.post('/api/predict', json={'smiles': 'CCO', 'model': 'gnn'})
     assert r.status_code == 200
     assert r.json()['model_used'] == 'gnn'
+
+
+def test_search_valid_smarts_returns_rows(client):
+    # c1ccccc1 matches benzene (c1ccccc1 in mock cache)
+    r = client.get('/api/search?smarts=c1ccccc1')
+    assert r.status_code == 200
+    data = r.json()
+    assert 'rows' in data and 'total' in data
+    assert data['total'] >= 1
+    assert all('smiles' in row for row in data['rows'])
+
+
+def test_search_invalid_smarts_returns_422(client):
+    r = client.get('/api/search?smarts=%%%invalid%%%')
+    assert r.status_code == 422
+
+
+def test_search_no_match_returns_empty(client):
+    # [Si] silicon — not present in mock cache (CCO, c1ccccc1)
+    r = client.get('/api/search?smarts=[Si]')
+    assert r.status_code == 200
+    data = r.json()
+    assert data['total'] == 0
+    assert data['rows'] == []

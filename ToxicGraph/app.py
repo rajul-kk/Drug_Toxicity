@@ -328,6 +328,51 @@ def api_testset_single(idx: int, request: Request, model: Optional[str] = None):
     }
 
 
+# ── /api/search ───────────────────────────────────────────────────────────────
+
+@app.get('/api/search')
+@limiter.limit('30/minute')
+def api_search(request: Request, smarts: str, model: Optional[str] = None,
+               page: int = 1, per_page: int = 20):
+    from rdkit import Chem
+    query_mol = Chem.MolFromSmarts(smarts)
+    if query_mol is None:
+        raise HTTPException(422, 'Invalid SMARTS pattern')
+
+    s = request.app.state
+    model_key = model or s.default_model
+    if model_key not in s.test_caches:
+        model_key = next(iter(s.test_caches))
+    cache = s.test_caches[model_key]
+
+    matched = []
+    for i, smi in enumerate(cache['smiles']):
+        mol = Chem.MolFromSmiles(smi)
+        if mol and mol.HasSubstructMatch(query_mol):
+            matched.append(i)
+
+    matched.sort(key=lambda i: -cache['max_conf'][i])
+    total = len(matched)
+    start = (page - 1) * per_page
+    page_slice = matched[start:start + per_page]
+
+    rows = [{
+        'idx':      i,
+        'smiles':   cache['smiles'][i],
+        'dataset':  cache['dataset'][i],
+        'max_conf': round(cache['max_conf'][i], 4),
+        'score':    round(cache['score_per_mol'][i], 4),
+    } for i in page_slice]
+
+    return {
+        'rows':       rows,
+        'total':      total,
+        'page':       page,
+        'pages':      max(1, (total + per_page - 1) // per_page),
+        'model_used': model_key,
+    }
+
+
 if __name__ == '__main__':
     import uvicorn
     uvicorn.run(

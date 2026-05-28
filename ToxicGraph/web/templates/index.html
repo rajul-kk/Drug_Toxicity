@@ -12,8 +12,13 @@
 <link rel="stylesheet" href="/static/style.css?v=4">
 <link rel="stylesheet" href="/static/landing.css?v=1">
 <link rel="stylesheet" href="/static/app.css?v=3">
+<link rel="stylesheet" href="/static/components.css?v=1">
 <script src="/static/particles.js" defer></script>
 <script src="/static/viewer.js" defer></script>
+<script src="/static/predict.js" defer></script>
+<script src="/static/browse.js" defer></script>
+<script src="/static/history.js" defer></script>
+<script src="/static/multi.js" defer></script>
 <script src="/static/app.js" defer></script>
 </head>
 <body class="landing-mode">
@@ -36,6 +41,16 @@
     <button class="vt-btn" onclick="showView('browse',this)">Browse</button>
   </div>
 </nav>
+
+<!-- HISTORY DRAWER -->
+<div id="history-panel" class="hist-panel hidden">
+  <div class="hist-header">
+    <span>Recent predictions</span>
+    <button onclick="historyToggle()">✕</button>
+  </div>
+  <div id="history-list"></div>
+</div>
+<button id="hist-toggle-btn" class="hist-toggle-btn" onclick="historyToggle()">History</button>
 
 <!-- VIEW 0: LANDING ──────────────────────────────── -->
 <div class="view active" id="view-home">
@@ -128,12 +143,13 @@
         </div>
       </div>
 
-      <!-- Task panel with Summary / All tasks tabs -->
+      <!-- Task panel with tabs -->
       <div class="task-panel">
         <div class="tp-tabs">
           <div class="tp-tab active" onclick="switchTaskTab('summary',this)">Summary</div>
           <div class="tp-tab" onclick="switchTaskTab('chart',this)">Chart</div>
           <div class="tp-tab" onclick="switchTaskTab('table',this)">Table ↕</div>
+          <div class="tp-tab" onclick="switchTaskTab('batch',this)">Batch</div>
           <button class="tp-export-btn" id="tp-export-btn" onclick="exportCSV()" title="Download as CSV" style="display:none">↓ CSV</button>
         </div>
 
@@ -177,6 +193,17 @@
             Run a prediction to see results.
           </div>
         </div>
+
+        <!-- BATCH TAB -->
+        <div class="tp-body hidden" id="tp-batch">
+          <div style="font-size:11px;color:var(--text-3);margin-bottom:8px">
+            Paste multiple SMILES (one per line) to compare toxicity profiles side-by-side.
+          </div>
+          <textarea id="batch-inp" class="batch-textarea"
+                    placeholder="CC(=O)Nc1ccc(O)cc1&#10;CCO&#10;c1ccccc1" rows="4"></textarea>
+          <button class="batch-run-btn" onclick="runBatch()">Run all →</button>
+          <div id="batch-results"></div>
+        </div>
       </div>
 
     </div>
@@ -198,6 +225,9 @@
       <div class="filter-chips" id="filter-chips">
         <!-- built by boot() -->
       </div>
+      <input type="text" id="smarts-inp" class="smarts-search"
+             placeholder="SMARTS filter — e.g. c1ccccc1"
+             oninput="onSearchInput(this.value)">
       <select class="sort-select" onchange="sortTable(this.value)">
         <option value="conf">Sort: max confidence ↓</option>
         <option value="score">Sort: score ↓</option>
