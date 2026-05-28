@@ -31,6 +31,10 @@ DS_COLORS = {
     'tox21':   '#047857',
     'clintox': '#6d28d9',
     'sider':   '#1d4ed8',
+    'cyp450':  '#b45309',
+    'ames':    '#dc2626',
+    'bbbp':    '#0891b2',
+    'hiv':     '#7c3aed',
 }
 
 

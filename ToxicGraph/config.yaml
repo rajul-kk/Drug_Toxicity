@@ -1,8 +1,8 @@
 dataset:
   root: 'data'
-  names: [toxcast]          # add clintox and/or sider to train on combined datasets
+  names: [tox21, clintox, sider, cyp450, ames, bbbp, hiv]
 model:
-  type: gnn       # gnn | dmpnn
+  type: dmpnn    # gnn | dmpnn
   hidden_channels: 128
   task_dim: 64    # task embedding size for task-conditioned readout
   ensemble_size: 3
@@ -10,5 +10,5 @@ model:
 training:
   batch_size: 64
   learning_rate: 0.0003
-  epochs: 100
+  epochs: 120
   early_stopping_patience: 10

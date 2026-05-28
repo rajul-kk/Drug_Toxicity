@@ -78,7 +78,11 @@
 .fchip.active.all{background:var(--text);color:#fff;border-color:var(--text)}
 .fchip.active.tox21{background:var(--green-bg);color:var(--green);border-color:rgba(4,120,87,.3)}
 .fchip.active.clintox{background:var(--purple-bg);color:var(--purple);border-color:rgba(109,40,217,.3)}
-.fchip.active.sider{background:var(--blue-bg);color:var(--blue);border-color:rgba(29,78,216,.3)}
+.fchip.active.sider  {background:var(--blue-bg);color:var(--blue);border-color:rgba(29,78,216,.3)}
+.fchip.active.cyp450{background:var(--amber-bg);color:var(--amber);border-color:rgba(180,83,9,.3)}
+.fchip.active.ames  {background:var(--red-bg);color:var(--red);border-color:rgba(220,38,38,.3)}
+.fchip.active.bbbp  {background:#cffafe;color:#0891b2;border-color:rgba(8,145,178,.3)}
+.fchip.active.hiv   {background:#ede9fe;color:#7c3aed;border-color:rgba(124,58,237,.3)}
 .fchip:not(.active){color:var(--text-3)}
 .sort-select{margin-left:auto;padding:6px 12px;border:1px solid var(--border-md);
              border-radius:8px;font-family:var(--sans);font-size:12px;background:var(--surface);
@@ -148,6 +152,21 @@
          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tc-prob{font-family:var(--mono);font-size:12px;font-weight:500;text-align:right;width:56px}
 .tc-delta{font-family:var(--mono);font-size:11px;text-align:right;width:56px}
+
+/* ── entrance animations ─────────────────────────── */
+@keyframes slideUp{
+  from{opacity:0;transform:translateY(10px)}
+  to  {opacity:1;transform:translateY(0)}
+}
+@keyframes fadeIn{
+  from{opacity:0}
+  to  {opacity:1}
+}
+@media(prefers-reduced-motion:reduce){
+  .anim-slide-up,.anim-fade-in{animation:none !important}
+}
+.anim-slide-up{animation:slideUp .28s ease both}
+.anim-fade-in {animation:fadeIn  .22s ease both}
 
 /* ─ MOBILE BREAKPOINTS ──────────────────────── */
 @media(max-width:768px){

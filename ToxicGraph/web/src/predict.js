@@ -197,7 +197,12 @@ export function updateSummaryBars(means) {
       <span class="task-val" style="color:${col}">${v.toFixed(2)}</span>
     </div>`;
   }).join('');
-  document.getElementById('task-bars-container').innerHTML = barsHtml;
+  const container = document.getElementById('task-bars-container');
+  container.innerHTML = barsHtml;
+  container.querySelectorAll('.task-row').forEach((row, i) => {
+    row.style.animationDelay = `${i * 18}ms`;
+    row.classList.add('anim-fade-in');
+  });
 }
 
 // ── csv export ─────────────────────────────────
@@ -258,6 +263,9 @@ function renderProperties(p) {
     `<div class="prop-item"><span class="prop-lbl">${l}</span><span class="prop-val">${v}</span></div>`
   ).join('') + `<div class="prop-item">${badge}</div>`;
   el.style.display = 'flex';
+  el.classList.remove('anim-slide-up');
+  void el.offsetWidth;
+  el.classList.add('anim-slide-up');
 }
 
 // ── predict ────────────────────────────────────
@@ -275,6 +283,12 @@ export async function runPredict() {
 
   const propStrip = document.getElementById('prop-strip');
   if (propStrip) propStrip.style.display = 'none';
+
+  ['chip-max-auc','chip-mc-std','chip-top-task'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.add('skeleton');
+    el.textContent = ' ';
+  });
 
   document.getElementById('mol-placeholder').style.display = 'none';
   document.getElementById('predict-loader').style.display = 'flex';
@@ -320,6 +334,14 @@ export async function runPredict() {
     : 'Top Prob';
   document.getElementById('chip-mc-std').textContent  = data.mc_std_mean.toFixed(3);
   document.getElementById('chip-top-task').textContent = data.top_task;
+  ['chip-max-auc','chip-mc-std','chip-top-task'].forEach(id =>
+    document.getElementById(id).classList.remove('skeleton'));
+  document.querySelectorAll('.metric-chip').forEach((el, i) => {
+    el.classList.remove('anim-slide-up');
+    void el.offsetWidth;
+    el.style.animationDelay = `${i * 60}ms`;
+    el.classList.add('anim-slide-up');
+  });
 
   state.means        = data.means;
   state.stds         = data.stds;

@@ -66,6 +66,13 @@ export function setModel(m, btn) {
   if (smiles) runPredict();
 }
 
+// ── dark mode toggle ───────────────────────────
+export function toggleTheme() {
+  const dark = document.body.classList.toggle('dark');
+  document.getElementById('theme-btn').textContent = dark ? '☽' : '☀';
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+}
+
 // ── hash helpers ───────────────────────────────
 function loadFromHash() {
   const m = location.hash.match(/[#?&]s=([^&]+)/);
@@ -78,6 +85,10 @@ function loadFromHash() {
 
 // ── boot ───────────────────────────────────────
 export async function boot() {
+  if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark');
+    document.getElementById('theme-btn').textContent = '☽';
+  }
   try {
     const r = await fetch('/api/info');
     if (!r.ok) throw new Error(`/api/info returned HTTP ${r.status}`);

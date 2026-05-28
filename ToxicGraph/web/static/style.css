@@ -72,3 +72,24 @@ nav{position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:16px;
 /* ─ SHARED: BAR TRACK ───────────────────────────── */
 .bar-track{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden}
 .bar-fill{height:100%;border-radius:2px}
+
+/* ── dark mode ───────────────────────────────────── */
+body.dark{
+  --bg:#0f0e0c;--surface:#1a1916;--surface2:#211f1c;
+  --text:#f0ece4;--text-2:#b0aaa4;--text-3:#706b65;
+  --border:rgba(240,236,228,.08);--border-md:rgba(240,236,228,.13);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.4);
+  --shadow:0 2px 8px rgba(0,0,0,.5);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.6);
+  --purple-bg:rgba(109,40,217,.18);--green-bg:rgba(4,120,87,.18);
+  --blue-bg:rgba(29,78,216,.18);--amber-bg:rgba(180,83,9,.18);--red-bg:rgba(220,38,38,.18);
+}
+body.dark #bg-canvas{opacity:.35}
+body.dark .mol-3d-box,body.dark .hmp-viewer{background:#111}
+body.dark.app-mode nav{background:rgba(15,14,12,.92)}
+
+/* ── theme toggle button ─────────────────────────── */
+.theme-btn{background:none;border:1px solid var(--border-md);border-radius:8px;
+           padding:5px 9px;font-size:14px;cursor:pointer;color:var(--text-2);
+           transition:all .15s;line-height:1;font-family:var(--sans)}
+.theme-btn:hover{border-color:var(--purple);color:var(--purple)}

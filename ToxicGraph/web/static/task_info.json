@@ -198,5 +198,45 @@
     "label": "Nervous system disorders",
     "dataset": "sider",
     "desc": "CNS and peripheral nervous system adverse effects including headache, neuropathy, seizures, and cognitive changes."
+  },
+  "CYP1A2": {
+    "label": "CYP1A2 inhibition",
+    "dataset": "cyp450",
+    "desc": "Inhibition of cytochrome P450 1A2 — a key drug-drug interaction enzyme involved in caffeine, clozapine, and theophylline metabolism."
+  },
+  "CYP2C9": {
+    "label": "CYP2C9 inhibition",
+    "dataset": "cyp450",
+    "desc": "Inhibition of CYP2C9, which metabolises ~15% of clinically used drugs including warfarin, phenytoin, and NSAIDs."
+  },
+  "CYP2C19": {
+    "label": "CYP2C19 inhibition",
+    "dataset": "cyp450",
+    "desc": "Inhibition of CYP2C19, which metabolises proton pump inhibitors, clopidogrel, and several antidepressants. Highly polymorphic in humans."
+  },
+  "CYP2D6": {
+    "label": "CYP2D6 inhibition",
+    "dataset": "cyp450",
+    "desc": "Inhibition of CYP2D6, responsible for ~25% of drug metabolism including opioids, antipsychotics, and beta-blockers. Polymorphic."
+  },
+  "CYP3A4": {
+    "label": "CYP3A4 inhibition",
+    "dataset": "cyp450",
+    "desc": "Inhibition of CYP3A4, the most abundant hepatic CYP enzyme, responsible for ~50% of drug metabolism and a major DDI risk."
+  },
+  "mutagenic": {
+    "label": "Ames mutagenicity",
+    "dataset": "ames",
+    "desc": "Positive Ames test result — indicates potential genotoxicity via frameshift or base-pair substitution mutations. Standard early-stage safety screen."
+  },
+  "p_np": {
+    "label": "BBB penetration",
+    "dataset": "bbbp",
+    "desc": "Blood-brain barrier permeability (positive = penetrates CNS). Critical for CNS drug design; also relevant to CNS side-effect risk."
+  },
+  "HIV_active": {
+    "label": "HIV activity",
+    "dataset": "hiv",
+    "desc": "Inhibits HIV replication in a cell-based assay. Positive indicates antiviral activity against the HIV-1 strain."
   }
 }

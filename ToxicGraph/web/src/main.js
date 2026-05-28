@@ -8,13 +8,13 @@ import { fetchBrowse, setFilter, sortTable, openFromBrowse, onSearchInput } from
 import { historyToggle, historyOpen } from './history.js';
 import { runBatch }        from './multi.js';
 import {
-  showView, switchTaskTab, copySmiles, toggleMissingLabels, setModel, boot,
+  showView, switchTaskTab, copySmiles, toggleMissingLabels, setModel, toggleTheme, boot,
 } from './app.js';
 
 // Expose to HTML inline handlers and cross-module window bridges
 Object.assign(window, {
   // navigation & UI
-  showView, switchTaskTab, copySmiles, toggleMissingLabels, setModel,
+  showView, switchTaskTab, copySmiles, toggleMissingLabels, setModel, toggleTheme,
   // predict view
   runPredict, exportCSV, showTaskPopover,
   // browse view

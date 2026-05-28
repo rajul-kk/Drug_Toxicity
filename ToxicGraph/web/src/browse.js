@@ -11,6 +11,19 @@ export const browseState = {filter: 'all', sort: 'conf', page: 1, mode: 'browse'
 
 let _searchDebounce = null;
 
+function skeletonRows() {
+  const widths = [200, 240, 180, 220, 195];
+  return widths.map(w => `
+    <tr class="sk-row">
+      <td class="thumb-cell"><div class="skeleton sk-cell" style="width:44px;height:44px;border-radius:8px"></div></td>
+      <td><div class="skeleton sk-cell" style="width:${w}px"></div></td>
+      <td><div class="skeleton sk-cell" style="width:52px;border-radius:999px"></div></td>
+      <td><div class="skeleton sk-cell" style="width:100px"></div></td>
+      <td><div class="skeleton sk-cell" style="width:36px"></div></td>
+      <td><div class="skeleton sk-cell" style="width:48px;border-radius:8px"></div></td>
+    </tr>`).join('');
+}
+
 export function onSearchInput(val) {
   clearTimeout(_searchDebounce);
   if (!val.trim()) {
@@ -29,7 +42,7 @@ export function onSearchInput(val) {
 
 export async function fetchBrowse() {
   const tbody = document.getElementById('mol-tbody');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-3);font-size:12px">Loading…</td></tr>';
+  tbody.innerHTML = skeletonRows();
   try {
     const {filter, sort, page} = browseState;
     const url = `/api/testset?model=${APP.activeModel||''}&page=${page}&per_page=20&filter=${filter}&sort=${sort}`;
@@ -48,7 +61,7 @@ export async function fetchBrowse() {
 
 async function fetchSearch() {
   const tbody = document.getElementById('mol-tbody');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-3);font-size:12px">Searching…</td></tr>';
+  tbody.innerHTML = skeletonRows();
   try {
     const {smarts, page} = browseState;
     const url = `/api/search?smarts=${encodeURIComponent(smarts)}&model=${APP.activeModel||''}&page=${page}&per_page=20`;
@@ -76,7 +89,7 @@ function renderBrowseRows(rows) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-3);font-size:12px">No results.</td></tr>';
     return;
   }
-  rows.forEach(r => {
+  rows.forEach((r, rowIdx) => {
     const conf = r.max_conf;
     const col  = conf>=0.8 ? 'var(--green)' : conf>=0.5 ? 'var(--amber)' : 'var(--blue-lt)';
     const tr   = document.createElement('tr');
@@ -95,6 +108,8 @@ function renderBrowseRows(rows) {
       </td>
       <td><span class="badge ${r.score>=0.75?'g':r.score>=0.55?'b':'a'}">${r.score.toFixed(2)}</span></td>
       <td><button class="open-btn" onclick="openFromBrowse(${r.idx})">Open →</button></td>`;
+    tr.style.animationDelay = `${rowIdx * 25}ms`;
+    tr.classList.add('anim-fade-in');
     tbody.appendChild(tr);
   });
 }
