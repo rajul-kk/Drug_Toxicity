@@ -16,6 +16,25 @@ from src.splitter import scaffold_split, multidataset_scaffold_split
 from src.calibration import fit_temperature, compute_ece, compute_brier
 
 
+def compute_pos_weights(train_dataset, num_tasks, device):
+    """
+    Per-task pos_weight = neg_count / pos_count, clamped to [1, 10].
+    Missing labels (-1) are excluded. Tasks with no positives keep weight 1.
+    """
+    all_y = train_dataset.data.y          # (N, T) — InMemoryDataset mega-tensor
+    pos_weight = torch.ones(num_tasks)
+    for i in range(num_tasks):
+        mask = all_y[:, i] > -0.5         # exclude missing labels
+        if mask.sum() == 0:
+            continue
+        labeled = all_y[mask, i]
+        pos = (labeled > 0.5).float().sum()
+        neg = (labeled < 0.5).float().sum()
+        if pos > 0:
+            pos_weight[i] = (neg / pos).clamp(max=10.0)
+    return pos_weight.to(device)
+
+
 def collect_preds(model, loader, device):
     model.eval()
     ys, preds = [], []
@@ -75,17 +94,29 @@ def eval_full_metrics(model, loader, num_tasks, device, task_names=None, tempera
     print(f"{'Mean':<20} {np.mean(aucs):.4f}  {np.mean(auprcs):.4f}  {np.mean(briers):.4f}  {np.mean(eces):.4f}\n")
 
 
-def focal_loss(logits, targets, gamma=2.0):
-    """Binary focal loss: down-weights easy negatives to address class imbalance."""
+def focal_loss(logits, targets, gamma=2.0, weights=None, pos_weight=None):
+    """Binary focal loss with optional per-element class and dataset weights."""
     bce = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')
     p_t = torch.exp(-bce)
-    return ((1 - p_t) ** gamma * bce).mean()
+    focal = (1 - p_t) ** gamma * bce
+    if pos_weight is not None:
+        # Upweight positive-class losses; negatives unchanged
+        focal = focal * torch.where(targets > 0.5, pos_weight, torch.ones_like(pos_weight))
+    if weights is not None:
+        focal = focal * weights
+    return focal.mean()
 
 
-def train_single(model, train_loader, val_loader, num_tasks, device, config, run_idx):
+def train_single(model, train_loader, val_loader, num_tasks, device, config, run_idx,
+                 task_weight_vec=None, pos_weight_vec=None):
     optimizer = torch.optim.Adam(model.parameters(), lr=config['training']['learning_rate'])
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', patience=3, factor=0.5)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=config['training']['epochs'], eta_min=1e-6
+    )
     patience = config['training'].get('early_stopping_patience', 10)
+
+    use_amp = device.type == 'cuda'
+    scaler = torch.amp.GradScaler('cuda', enabled=use_amp)
 
     best_val_auc = -1.0
     best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
@@ -98,18 +129,25 @@ def train_single(model, train_loader, val_loader, num_tasks, device, config, run
         for data in pbar:
             data = data.to(device)
             optimizer.zero_grad()
-            out = model(data)
-            y = data.y
-            is_labeled = y > -0.5
-            loss = focal_loss(out[is_labeled], y[is_labeled])
-            loss.backward()
+            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_amp):
+                out = model(data)
+                y = data.y
+                is_labeled = y > -0.5
+                t_idx = torch.arange(y.shape[1], device=device).unsqueeze(0).expand_as(y)
+                labeled_t_idx = t_idx[is_labeled]
+                sample_w  = task_weight_vec[labeled_t_idx] if task_weight_vec is not None else None
+                elem_pw   = pos_weight_vec[labeled_t_idx]  if pos_weight_vec  is not None else None
+                loss = focal_loss(out[is_labeled], y[is_labeled], weights=sample_w, pos_weight=elem_pw)
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
             total_loss += loss.item()
             pbar.set_postfix({'loss': loss.item()})
 
         val_auc = eval_auc(model, val_loader, num_tasks, device)
-        scheduler.step(val_auc)
+        scheduler.step()
         lr = optimizer.param_groups[0]['lr']
         print(f'[{run_idx + 1}] Epoch {epoch:03d}  Loss {total_loss / len(train_loader):.4f}  Val AUC {val_auc:.4f}  LR {lr:.6f}')
 
@@ -174,6 +212,21 @@ def train():
     pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
     print(f"Output dir: {out_dir}")
 
+    pos_weight_vec = compute_pos_weights(train_dataset, num_tasks, device)
+    print(f"pos_weight range: min={pos_weight_vec.min():.2f}  max={pos_weight_vec.max():.2f}  "
+          f"mean={pos_weight_vec.mean():.2f}")
+
+    # Build per-task loss weight vector from dataset_weights config (multi-dataset only)
+    task_weight_vec = None
+    if hasattr(dataset, 'task_ranges'):
+        dw = config['training'].get('dataset_weights', {})
+        if dw:
+            wv = torch.ones(num_tasks)
+            for name, (start, end) in dataset.task_ranges.items():
+                wv[start:end] = float(dw.get(name, 1.0))
+            task_weight_vec = wv.to(device)
+            print(f"Task weights: { {n: float(dw.get(n, 1.0)) for n in dataset.task_ranges} }")
+
     def build_model():
         if model_type == 'dmpnn':
             return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth, task_dim=task_dim).to(device)
@@ -200,7 +253,8 @@ def train():
         if device.type == 'cuda':
             model = torch.compile(model)
 
-        model = train_single(model, train_loader, val_loader, eval_num_tasks, device, config, run_idx)
+        model = train_single(model, train_loader, val_loader, eval_num_tasks, device, config,
+                             run_idx, task_weight_vec, pos_weight_vec)
 
         # Save via state_dict so it's compatible with uncompiled model at load time
         state = model._orig_mod.state_dict() if hasattr(model, '_orig_mod') else model.state_dict()
