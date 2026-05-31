@@ -7,6 +7,7 @@ from functools import lru_cache
 from torch_geometric.data import Data
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem
+from rdkit.DataStructs import ConvertToNumpyArray
 
 RDLogger.DisableLog('rdApp.*')  # suppress UFFTYPER / sanitisation warnings
 
@@ -155,7 +156,12 @@ def smiles_to_graph(smiles):
     x = torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
     edge_attr = torch.nan_to_num(edge_attr, nan=0.0, posinf=0.0, neginf=0.0)
 
-    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr)
+    fp_obj = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=512)
+    fp_arr = np.zeros(512, dtype=np.float32)
+    ConvertToNumpyArray(fp_obj, fp_arr)
+    fp = torch.tensor(fp_arr, dtype=torch.float).unsqueeze(0)   # (1, 512)
+
+    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, fp=fp)
 
 
 def _compute_featurizer_hash() -> str:
