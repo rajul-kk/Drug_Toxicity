@@ -1,14 +1,21 @@
 dataset:
   root: 'data'
-  names: [tox21, clintox, sider, cyp450, ames, bbbp, hiv]
+  names: [tox21, clintox, sider, bbbp, hiv]
 model:
-  type: dmpnn    # gnn | dmpnn
-  hidden_channels: 128
-  task_dim: 64    # task embedding size for task-conditioned readout
-  ensemble_size: 3
-  depth: 4        # message passing steps (dmpnn) / conv layers (gnn)
+  type: dmpnn   # gnn | dmpnn
+  hidden_channels: 256
+  task_dim: 64
+  fp_dim: 64        # Morgan fingerprint projection dim; used by Task 4
+  ensemble_size: 5
+  depth: 5
 training:
   batch_size: 64
   learning_rate: 0.0003
   epochs: 120
-  early_stopping_patience: 10
+  early_stopping_patience: 18
+  dataset_weights:
+    tox21:   1.0
+    clintox: 4.0
+    sider:   5.0
+    bbbp:    4.0
+    hiv:     0.3
