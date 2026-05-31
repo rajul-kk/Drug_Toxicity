@@ -207,6 +207,7 @@ def train():
     model_type = config['model'].get('type', 'gnn')
     depth = config['model'].get('depth', 4)
     task_dim = config['model'].get('task_dim', 64)
+    fp_dim = config['model'].get('fp_dim', 64)
 
     out_dir = args.out_dir or f'checkpoints/{model_type}'
     pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
@@ -229,8 +230,8 @@ def train():
 
     def build_model():
         if model_type == 'dmpnn':
-            return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth, task_dim=task_dim).to(device)
-        return GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim, task_dim=task_dim).to(device)
+            return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth, task_dim=task_dim, fp_dim=fp_dim).to(device)
+        return GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim, task_dim=task_dim, fp_dim=fp_dim).to(device)
 
     print(f"Model: {model_type.upper()}  hidden={hidden}  task_dim={task_dim}  depth/layers={depth}  ensemble={ensemble_size}")
 
