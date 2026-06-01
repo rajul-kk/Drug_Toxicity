@@ -180,8 +180,16 @@ templates = Jinja2Templates(directory='web/templates')
 # ── health ────────────────────────────────────────────────────────────────────
 
 @app.get('/health')
-def health():
-    return {'status': 'ok'}
+def health(request: Request):
+    s = request.app.state
+    models_loaded = list(s.ensembles.keys()) if hasattr(s, 'ensembles') else []
+    task_count = len(s.task_names) if hasattr(s, 'task_names') else 0
+    status = 'ok' if models_loaded else 'no_models'
+    return {
+        'status': status,
+        'models_loaded': models_loaded,
+        'task_count': task_count,
+    }
 
 
 # ── thumbnail ─────────────────────────────────────────────────────────────────

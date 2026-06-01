@@ -34,6 +34,16 @@ def test_health(client):
     assert r.json()['status'] == 'ok'
 
 
+def test_health_includes_model_info(client):
+    r = client.get('/health')
+    assert r.status_code == 200
+    body = r.json()
+    assert 'models_loaded' in body
+    assert isinstance(body['models_loaded'], list)
+    assert 'task_count' in body
+    assert isinstance(body['task_count'], int)
+
+
 def test_info_returns_task_names(client):
     r = client.get('/api/info')
     assert r.status_code == 200
