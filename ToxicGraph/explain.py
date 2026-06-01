@@ -2,9 +2,12 @@
 import os
 import yaml
 import torch
+import numpy as np
 from matplotlib import cm
 from rdkit import Chem
 from rdkit.Chem import Draw
+from rdkit.Chem.Draw import rdMolDraw2D
+from torch_geometric.data import Data as PyGData
 from src.models import GNN
 from src.featurizer import smiles_to_graph
 from src.dataset import TOX21_TASKS
@@ -106,6 +109,73 @@ def explain_molecule(smiles, target_task_idx=0, output_dir='explanations'):
     except Exception as e:
         print(f"Visualization failed: {e}")
         print("Node weights:", node_weights)
+
+def get_atom_importance_svg(smiles: str, task_idx: int, ensemble, task_names: list,
+                            device) -> dict | None:
+    """
+    Gradient saliency for atom importance. Fast: one forward + backward pass.
+    Returns {'atom_weights': [...], 'svg': '<svg>...', 'task_name': str} or None.
+    """
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return None
+
+    data = smiles_to_graph(smiles)
+    if data is None:
+        return None
+
+    # Use first ensemble member for saliency (consistent, deterministic)
+    model = ensemble.models[0]
+    model.eval()
+
+    # Build grad-enabled data object
+    x_grad = data.x.clone().detach().to(device).requires_grad_(True)
+    d = PyGData(
+        x=x_grad,
+        edge_index=data.edge_index.to(device),
+        edge_attr=data.edge_attr.to(device),
+        batch=torch.zeros(data.x.shape[0], dtype=torch.long, device=device),
+        fp=data.fp.to(device) if hasattr(data, 'fp') and data.fp is not None else None,
+    )
+
+    out = model(d)  # (1, num_tasks)
+    if task_idx >= out.shape[1]:
+        task_idx = 0
+    out[0, task_idx].backward()
+
+    importance = x_grad.grad.abs().sum(dim=-1).detach().cpu().numpy()
+    min_v, max_v = float(importance.min()), float(importance.max())
+    norm = (importance - min_v) / (max_v - min_v + 1e-8)
+
+    # Render: green colormap, heavier = more important
+    colors = {i: cm.Greens(float(v) * 0.85 + 0.1)[:3] for i, v in enumerate(norm)}
+
+    try:
+        drawer = rdMolDraw2D.MolDraw2DSVG(320, 260)
+        drawer.drawOptions().addAtomIndices = False
+        drawer.drawOptions().padding = 0.15
+        rdMolDraw2D.PrepareAndDrawMolecule(
+            drawer, mol,
+            highlightAtoms=list(range(mol.GetNumAtoms())),
+            highlightAtomColors=colors,
+            highlightAtomRadii={i: 0.4 for i in range(mol.GetNumAtoms())},
+        )
+        drawer.FinishDrawing()
+        svg = drawer.GetDrawingText()
+    except Exception:
+        # Fallback: plain molecule SVG without highlights
+        drawer = rdMolDraw2D.MolDraw2DSVG(320, 260)
+        drawer.DrawMolecule(mol)
+        drawer.FinishDrawing()
+        svg = drawer.GetDrawingText()
+
+    task_name = task_names[task_idx] if task_idx < len(task_names) else str(task_idx)
+    return {
+        'atom_weights': norm.tolist(),
+        'svg': svg,
+        'task_name': task_name,
+    }
+
 
 if __name__ == '__main__':
     caffeine_smiles = 'CN1C=NC2=C1C(=O)N(C(=O)N2C)C'

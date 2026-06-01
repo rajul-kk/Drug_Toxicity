@@ -171,6 +171,21 @@
 .anim-slide-up{animation:slideUp .28s ease both}
 .anim-fade-in {animation:fadeIn  .22s ease both}
 
+/* ─ ATOM ATTRIBUTION PANEL ──────────────────── */
+.explain-btn{margin-top:10px;padding:7px 16px;border-radius:80px;border:1px solid var(--border-md);
+             background:none;font-family:var(--sans);font-size:11px;color:var(--text-2);
+             cursor:pointer;transition:all .15s;width:100%}
+.explain-btn:hover{background:var(--surface2);color:var(--text)}
+.attr-panel{margin-top:12px;background:var(--surface2);border:1px solid var(--border);
+            border-radius:12px;padding:12px;overflow:hidden}
+.attr-header{display:flex;align-items:center;justify-content:space-between;
+             font-size:11px;color:var(--text-2);margin-bottom:10px}
+.attr-close{background:none;border:none;cursor:pointer;color:var(--text-3);
+            font-size:14px;line-height:1;padding:0 2px}
+.attr-close:hover{color:var(--text)}
+.attr-note{font-size:9px;color:var(--text-3);margin-top:6px;text-transform:uppercase;letter-spacing:0.08em}
+#attr-svg-container svg{width:100%;height:auto;display:block}
+
 /* ─ MOBILE BREAKPOINTS ──────────────────────── */
 @media(max-width:768px){
   .predict-layout{grid-template-columns:1fr;padding:20px}

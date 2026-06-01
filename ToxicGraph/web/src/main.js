@@ -3,7 +3,7 @@
 
 import './particles.js';
 import { init3dViewer }    from './viewer.js';
-import { runPredict, exportCSV, showTaskPopover } from './predict.js';
+import { runPredict, exportCSV, showTaskPopover, explainTopTask, closeAttr } from './predict.js';
 import { fetchBrowse, setFilter, sortTable, openFromBrowse, onSearchInput } from './browse.js';
 import { historyToggle, historyOpen } from './history.js';
 import { runBatch }        from './multi.js';
@@ -16,7 +16,7 @@ Object.assign(window, {
   // navigation & UI
   showView, switchTaskTab, copySmiles, toggleMissingLabels, setModel, toggleTheme,
   // predict view
-  runPredict, exportCSV, showTaskPopover,
+  runPredict, exportCSV, showTaskPopover, explainTopTask, closeAttr,
   // browse view
   setFilter, sortTable, openFromBrowse, onSearchInput,
   // history

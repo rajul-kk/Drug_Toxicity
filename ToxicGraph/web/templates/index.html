@@ -162,6 +162,17 @@
           <div class="expand-hint" onclick="switchTaskTab('chart', document.querySelectorAll('.tp-tab')[1])">
             Show all tasks with uncertainty <span>→</span>
           </div>
+          <button id="explain-btn" class="explain-btn" onclick="explainTopTask()" style="display:none">
+            Explain top task →
+          </button>
+          <div id="attr-panel" class="attr-panel" style="display:none">
+            <div class="attr-header">
+              <span>Atom importance · <span id="attr-task-name">—</span></span>
+              <button onclick="closeAttr()" class="attr-close">✕</button>
+            </div>
+            <div id="attr-svg-container"></div>
+            <div class="attr-note">Gradient saliency · green = high importance</div>
+          </div>
         </div>
 
         <!-- CHART TAB -->

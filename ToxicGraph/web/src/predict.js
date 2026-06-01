@@ -209,6 +209,34 @@ export function updateSummaryBars(means, stds = []) {
   });
 }
 
+// ── atom attribution ───────────────────────────
+export async function explainTopTask() {
+  const smiles = document.getElementById('smiles-inp').value.trim();
+  const btn = document.getElementById('explain-btn');
+  const taskIdx = parseInt(btn.dataset.taskIdx || '0', 10);
+  const panel = document.getElementById('attr-panel');
+  const container = document.getElementById('attr-svg-container');
+
+  panel.style.display = '';
+  container.innerHTML = '<div style="color:var(--text-3);font-size:11px;padding:16px 0">Computing… ~1s</div>';
+
+  try {
+    const r = await fetch(`/api/explain?smiles=${encodeURIComponent(smiles)}&task=${taskIdx}`);
+    if (!r.ok) throw new Error((await r.json()).detail || 'Server error');
+    const data = await r.json();
+    document.getElementById('attr-task-name').textContent = data.task_name;
+    container.innerHTML = data.svg;
+    const svg = container.querySelector('svg');
+    if (svg) { svg.style.width = '100%'; svg.style.height = 'auto'; }
+  } catch (e) {
+    container.innerHTML = `<div style="color:var(--red);font-size:11px;padding:16px 0">Failed: ${e.message}</div>`;
+  }
+}
+
+export function closeAttr() {
+  document.getElementById('attr-panel').style.display = 'none';
+}
+
 // ── csv export ─────────────────────────────────
 export function exportCSV() {
   const means = state.means || [];
@@ -371,6 +399,15 @@ export async function runPredict() {
     setTableRendered(true);
   }
   updateSummaryBars(data.means, data.stds);
+
+  // show explain button for top-scoring task
+  const topIdx = data.means.indexOf(Math.max(...data.means));
+  const explainBtn = document.getElementById('explain-btn');
+  if (explainBtn) {
+    explainBtn.dataset.taskIdx = topIdx;
+    explainBtn.style.display = '';
+    document.getElementById('attr-panel').style.display = 'none';
+  }
 
   if (data.sdf) {
     if (smiles !== state.renderedSmiles) {

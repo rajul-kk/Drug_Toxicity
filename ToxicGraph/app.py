@@ -340,6 +340,23 @@ def api_testset_single(idx: int, request: Request, model: Optional[str] = None):
     }
 
 
+# ── /api/explain ──────────────────────────────────────────────────────────────
+
+@app.get('/api/explain')
+@limiter.limit('10/minute')
+def api_explain(smiles: str, request: Request, task: int = 0, model: Optional[str] = None):
+    from explain import get_atom_importance_svg
+    s = request.app.state
+    model_key = model or s.default_model
+    ensemble = s.ensembles.get(model_key)
+    if ensemble is None:
+        raise HTTPException(503, f'Model "{model_key}" not loaded')
+    result = get_atom_importance_svg(smiles, task, ensemble, s.task_names, s.device)
+    if result is None:
+        raise HTTPException(422, 'Explanation failed — invalid SMILES or model error')
+    return result
+
+
 # ── /api/properties ───────────────────────────────────────────────────────────
 
 @app.get('/api/properties/{smiles:path}')
