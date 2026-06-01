@@ -13,10 +13,10 @@
 .mol-3d-box{height:300px;background:#f0f4ff;position:relative}
 .mol-3d-box > div:first-child{width:100%;height:100%}
 .mol-footer{padding:12px 16px;border-top:1px solid var(--border)}
-.mol-smiles{font-family:var(--mono);font-size:11px;color:var(--purple);
+.mol-smiles{font-family:var(--mono);font-size:11px;color:var(--text-2);
             white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;
             cursor:pointer;transition:color .15s}
-.mol-smiles:hover{color:var(--purple-lt)}
+.mol-smiles:hover{color:var(--text)}
 .mol-sub{font-size:12px;color:var(--text-3)}
 
 .right-panel{display:flex;flex-direction:column;gap:16px}
@@ -25,10 +25,10 @@
 .metric-chip{background:var(--surface);border:1px solid var(--border-md);
              border-radius:12px;padding:14px 16px;box-shadow:var(--shadow-sm);
              position:relative;overflow:hidden}
-.metric-chip::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
-.metric-chip.g::after{background:linear-gradient(90deg,var(--green),var(--green-lt))}
-.metric-chip.p::after{background:linear-gradient(90deg,var(--purple),var(--purple-lt))}
-.metric-chip.b::after{background:linear-gradient(90deg,var(--blue),var(--blue-lt))}
+.metric-chip::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:rgba(0,0,0,0.08)}
+.metric-chip.g::after{background:var(--green)}
+.metric-chip.p::after{background:rgba(0,0,0,0.2)}
+.metric-chip.b::after{background:var(--blue)}
 .mc-val{font-family:var(--serif);font-size:32px;letter-spacing:-1px;line-height:1}
 .mc-val.g{color:var(--green)}.mc-val.p{color:var(--purple)}.mc-val.b{color:var(--blue)}
 .mc-lbl{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:1.5px;margin-top:4px}
@@ -39,8 +39,8 @@
 .tp-tab{padding:11px 16px;font-size:12px;font-weight:500;color:var(--text-3);
         cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;
         white-space:nowrap}
-.tp-tab.active{color:var(--purple);border-bottom-color:var(--purple)}
-.tp-tab:hover:not(.active){color:var(--text-2)}
+.tp-tab.active{color:#000;border-bottom-color:#000}
+.tp-tab:hover:not(.active){color:#444}
 .tp-body{padding:16px}
 .tp-body.hidden{display:none}
 
@@ -49,7 +49,10 @@
 .task-name{font-family:var(--mono);font-size:11px;color:var(--text-2)}
 .task-track{height:4px;background:var(--surface2);border-radius:2px;overflow:hidden}
 .task-fill{height:100%;border-radius:2px}
-.task-val{font-family:var(--mono);font-size:11px;text-align:right}
+.task-val{font-family:var(--mono);font-size:11px;text-align:right;display:flex;align-items:center;gap:3px}
+.unc-badge{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;
+           border-radius:50%;background:var(--amber-bg);color:var(--amber);
+           font-size:9px;font-weight:700;cursor:default;flex-shrink:0}
 
 .unc-note{display:flex;align-items:center;gap:6px;margin-top:12px;padding:8px 10px;
           background:var(--surface2);border-radius:8px;font-size:11px;color:var(--text-3)}
@@ -61,13 +64,13 @@
 
 .expand-hint{text-align:center;padding:10px;font-size:12px;color:var(--text-3);
              cursor:pointer;transition:color .15s}
-.expand-hint:hover{color:var(--purple)}
-.expand-hint span{color:var(--purple)}
+.expand-hint:hover{color:var(--text)}
+.expand-hint span{color:var(--text-2)}
 
 /* ─ BROWSE VIEW ─────────────────────────────────── */
 .browse-layout{max-width:1100px;margin:0 auto;padding:32px 40px}
 .browse-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
-.browse-title{font-family:var(--serif);font-size:28px;letter-spacing:-.5px}
+.browse-title{font-family:var(--sans);font-size:28px;font-weight:300;letter-spacing:-0.02em}
 .browse-sub{font-size:13px;color:var(--text-3);margin-top:2px}
 
 .filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:20px}
@@ -85,7 +88,7 @@
 .fchip.active.hiv   {background:#ede9fe;color:#7c3aed;border-color:rgba(124,58,237,.3)}
 .fchip:not(.active){color:var(--text-3)}
 .sort-select{margin-left:auto;padding:6px 12px;border:1px solid var(--border-md);
-             border-radius:8px;font-family:var(--sans);font-size:12px;background:var(--surface);
+             border-radius:80px;font-family:var(--sans);font-size:12px;background:var(--surface);
              color:var(--text-2);cursor:pointer;outline:none}
 
 .mol-table{width:100%;border-collapse:collapse}
@@ -110,28 +113,28 @@
 .conf-track{flex:1;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden}
 .conf-fill{height:100%;border-radius:2px}
 .conf-val{font-family:var(--mono);font-size:11px;width:32px;text-align:right;flex-shrink:0}
-.open-btn{padding:5px 12px;border-radius:8px;border:1px solid var(--border-md);background:none;
-          font-family:var(--sans);font-size:12px;font-weight:500;color:var(--purple);
+.open-btn{padding:5px 12px;border-radius:80px;border:1px solid var(--border-md);background:none;
+          font-family:var(--sans);font-size:12px;font-weight:500;color:var(--text);
           cursor:pointer;transition:all .15s;white-space:nowrap}
-.open-btn:hover{background:var(--purple-bg);border-color:var(--purple)}
+.open-btn:hover{background:var(--surface2);border-color:var(--border-md)}
 
 .pagination{display:flex;align-items:center;justify-content:space-between;
             margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
 .page-info{font-size:12px;color:var(--text-3)}
 .page-btns{display:flex;gap:6px}
-.page-btn{padding:5px 12px;border:1px solid var(--border-md);border-radius:8px;
+.page-btn{padding:5px 12px;border:1px solid var(--border-md);border-radius:80px;
           background:var(--surface);font-size:12px;cursor:pointer;transition:all .15s}
-.page-btn:hover{border-color:var(--purple);color:var(--purple)}
-.page-btn.active{background:var(--purple);color:#fff;border-color:var(--purple)}
+.page-btn:hover{border-color:var(--text);color:var(--text)}
+.page-btn.active{background:#000;color:#fff;border-color:#000}
 
 /* ─ EXPORT BUTTON ───────────────────────────── */
 .tp-export-btn{
   margin-left:auto; padding:5px 12px; border:1px solid var(--border-md);
-  background:none; border-radius:8px; font-size:11px; font-weight:600;
+  background:none; border-radius:80px; font-size:11px; font-weight:500;
   color:var(--text-3); cursor:pointer; font-family:var(--sans);
   transition:all .15s;
 }
-.tp-export-btn:hover{ border-color:var(--purple); color:var(--purple); }
+.tp-export-btn:hover{ border-color:var(--text); color:var(--text); }
 
 /* ─ MISSING-LABEL TOGGLE ────────────────────── */
 .missing-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3);

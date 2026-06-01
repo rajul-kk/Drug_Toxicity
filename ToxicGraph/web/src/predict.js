@@ -186,15 +186,19 @@ export function renderTable() {
 }
 
 // ── summary bars ───────────────────────────────
-export function updateSummaryBars(means) {
+export function updateSummaryBars(means, stds = []) {
   const top6 = [...means.map((v, i) => ({v, i}))]
     .sort((a, b) => b.v - a.v).slice(0, 6);
   const barsHtml = top6.map(({v, i}) => {
     const col = v>=0.7 ? 'var(--green)' : v>=0.4 ? 'var(--blue-lt)' : 'var(--text-3)';
+    const std = stds[i];
+    const badge = (std !== undefined && std > 0.12)
+      ? `<span class="unc-badge" title="High uncertainty (MC std ${std.toFixed(3)})">?</span>`
+      : '';
     return `<div class="task-row">
       <span class="task-name">${TASK_NAMES[i]||i}</span>
       <div class="task-track"><div class="task-fill" style="width:${v*100}%;background:${col}"></div></div>
-      <span class="task-val" style="color:${col}">${v.toFixed(2)}</span>
+      <span class="task-val" style="color:${col}">${v.toFixed(2)}${badge}</span>
     </div>`;
   }).join('');
   const container = document.getElementById('task-bars-container');
@@ -272,7 +276,12 @@ function renderProperties(p) {
 export async function runPredict() {
   if (isPredicting) return;
   const smiles = document.getElementById('smiles-inp').value.trim();
-  if (!smiles) return;
+  if (!smiles) {
+    const bar = document.getElementById('nav-query-bar');
+    bar.classList.add('error');
+    setTimeout(() => bar.classList.remove('error'), 1800);
+    return;
+  }
   setIsPredicting(true);
   const queryBtn = document.querySelector('.query-btn');
   if (queryBtn) queryBtn.disabled = true;
@@ -361,7 +370,7 @@ export async function runPredict() {
     renderTable();
     setTableRendered(true);
   }
-  updateSummaryBars(data.means);
+  updateSummaryBars(data.means, data.stds);
 
   if (data.sdf) {
     if (smiles !== state.renderedSmiles) {

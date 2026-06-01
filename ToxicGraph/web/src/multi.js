@@ -25,6 +25,8 @@ export async function runBatch() {
       )
     );
     results.push(...chunkResults);
+    const done = Math.min(i + CHUNK, smilesList.length);
+    resultsEl.innerHTML = `<div style="color:var(--text-3);font-size:12px;padding:8px 0">Running… ${done} / ${smilesList.length}</div>`;
   }
 
   if (btn) btn.disabled = false;
