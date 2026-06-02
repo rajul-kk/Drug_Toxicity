@@ -156,6 +156,24 @@ def smiles_to_graph(smiles):
     x = torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
     edge_attr = torch.nan_to_num(edge_attr, nan=0.0, posinf=0.0, neginf=0.0)
 
+    # ── Virtual node ────────────────────────────────────────────────────────
+    # One extra node (index N) connected to every real atom bidirectionally.
+    # Edges appended as interleaved (vn->i, i->vn) pairs so DMPNN's
+    # rev_idx = arange ^ 1 pairing invariant is preserved.
+    N = x.shape[0]
+    vn_feat = torch.zeros(1, x.shape[1])
+    x = torch.cat([x, vn_feat], dim=0)                   # (N+1, feat_dim)
+
+    vn_idx_t  = torch.full((N,), N, dtype=torch.long)
+    atom_idx  = torch.arange(N, dtype=torch.long)
+    vn_src = torch.stack([vn_idx_t, atom_idx], dim=1).flatten()   # [N,0,N,1,...]
+    vn_dst = torch.stack([atom_idx, vn_idx_t], dim=1).flatten()   # [0,N,1,N,...]
+    vn_edge_index = torch.stack([vn_src, vn_dst], dim=0)          # (2, 2N)
+    vn_edge_attr  = torch.zeros(2 * N, edge_attr.shape[1])
+
+    edge_index = torch.cat([edge_index, vn_edge_index], dim=1)
+    edge_attr  = torch.cat([edge_attr,  vn_edge_attr],  dim=0)
+
     morgan_obj = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=512)
     morgan_arr = np.zeros(512, dtype=np.float32)
     ConvertToNumpyArray(morgan_obj, morgan_arr)

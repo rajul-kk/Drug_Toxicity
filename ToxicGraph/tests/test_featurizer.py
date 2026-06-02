@@ -39,3 +39,20 @@ def test_fp_deterministic():
     smiles_to_graph.cache_clear()
     d2 = smiles_to_graph('CC(=O)O')
     assert torch.equal(d1.fp, d2.fp)
+
+
+def test_virtual_node_present():
+    data = smiles_to_graph('CCO')   # ethanol: 3 heavy atoms
+    assert data.x.shape[0] == 4, \
+        f"Expected 4 nodes (3 atoms + 1 virtual), got {data.x.shape[0]}"
+
+
+def test_virtual_node_edges():
+    data = smiles_to_graph('CCO')   # 3 atoms, 2 bonds -> 4 directed real edges
+    N_real = 3
+    N_virtual_edges = 2 * N_real   # (vn->i) and (i->vn) for each atom
+    assert data.edge_index.shape[1] % 2 == 0, "Edge count must be even (all pairs)"
+    vn_idx = N_real  # virtual node is at index 3
+    vn_edges = (data.edge_index == vn_idx).any(dim=0)
+    assert vn_edges.sum() == N_virtual_edges, \
+        f"Expected {N_virtual_edges} virtual edges, found {vn_edges.sum().item()}"
