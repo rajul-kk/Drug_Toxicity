@@ -2,6 +2,7 @@
 import os
 import pathlib
 import argparse
+import datetime
 import yaml
 import torch
 import torch.nn.functional as F
@@ -209,7 +210,9 @@ def train():
     task_dim = config['model'].get('task_dim', 64)
     fp_dim = config['model'].get('fp_dim', 64)
 
-    out_dir = args.out_dir or f'checkpoints/{model_type}'
+    date_str = datetime.date.today().strftime('%Y%m%d')
+    ds_key = '-'.join(n[:3] for n in config['dataset']['names'])
+    out_dir = args.out_dir or os.path.join('checkpoints', f'{model_type}_{ds_key}_{date_str}')
     pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
     print(f"Output dir: {out_dir}")
 
@@ -276,6 +279,20 @@ def train():
     print("Fitting temperature scaler on validation set...")
     temperature = fit_temperature(ensemble, val_loader, device)
     torch.save(temperature, os.path.join(out_dir, 'temperature.pt'))
+    import json as _json
+    _metadata = {
+        'arch':           model_type,
+        'datasets':       config['dataset']['names'],
+        'date':           date_str,
+        'hidden_channels': hidden,
+        'ensemble_size':  ensemble_size,
+        'fp_dim':         fp_dim,
+        'fp_bits':        config['model'].get('fp_bits', 679),
+        'depth':          depth,
+    }
+    with open(os.path.join(out_dir, 'metadata.json'), 'w') as _f:
+        _json.dump(_metadata, _f, indent=2)
+    print(f"Saved metadata.json to {out_dir}")
     print(f"\n=== Calibrated Test Results (T={temperature:.4f}) ===")
     eval_full_metrics(ensemble, test_loader, num_tasks, device, all_tasks, temperature=temperature)
 

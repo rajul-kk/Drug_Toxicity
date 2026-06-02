@@ -48,11 +48,25 @@ def _build_task_info(config):
     return task_names, task_groups
 
 
+import glob as _glob
+
+def _find_latest_checkpoint_dir(arch: str) -> str | None:
+    """Return newest checkpoints/{arch}_*/ dir; fall back to flat checkpoints/{arch}/."""
+    versioned = sorted(
+        d for d in _glob.glob(os.path.join('checkpoints', f'{arch}_*'))
+        if os.path.isdir(d) and os.path.exists(os.path.join(d, 'model_0.pth'))
+    )
+    if versioned:
+        return versioned[-1]
+    flat = os.path.join('checkpoints', arch)
+    return flat if os.path.exists(os.path.join(flat, 'model_0.pth')) else None
+
+
 def _load_available_ensembles(config, device):
     ensembles, test_caches = {}, {}
     for arch in ['gnn', 'dmpnn']:
-        model_dir = os.path.join('checkpoints', arch)
-        if not os.path.exists(os.path.join(model_dir, 'model_0.pth')):
+        model_dir = _find_latest_checkpoint_dir(arch)
+        if model_dir is None:
             continue
 
         cfg = {**config, 'model': {**config['model'], 'type': arch}}
