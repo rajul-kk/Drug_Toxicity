@@ -76,6 +76,10 @@ def _load_available_ensembles(config, device):
         temperature = float(torch.load(temp_path, map_location='cpu')) \
                       if os.path.exists(temp_path) else 1.0
 
+        from src.fp_model import FPEnsemble as _FPE
+        _rf_path = os.path.join(model_dir, 'fp_model.pkl')
+        fp_model = _FPE.load(_rf_path) if os.path.exists(_rf_path) else None
+
         _cp = lambda f: os.path.join(model_dir, f)
         if all(os.path.exists(_cp(f)) for f in
                ('test_probs.npy', 'test_labels.npy', 'test_smiles.json', 'test_sources.json')):
@@ -127,6 +131,7 @@ def _load_available_ensembles(config, device):
             'max_conf':     max_conf_list,
             'score_per_mol': scores,
             'temperature':  temperature,
+            'fp_model':     fp_model,
             'idx': {
                 'all': {'conf': idx_conf, 'score': idx_score},
                 **{ds: {'conf': _filter(idx_conf, ds), 'score': _filter(idx_score, ds)}
@@ -155,6 +160,7 @@ async def lifespan(app: FastAPI):
 
     app.state.ensembles    = ensembles
     app.state.test_caches  = test_caches
+    app.state.fp_models    = {arch: tc.get('fp_model') for arch, tc in test_caches.items()}
     app.state.task_names   = task_names
     app.state.task_groups  = task_groups
     app.state.default_model = config['model'].get('type', 'gnn')
@@ -269,6 +275,7 @@ def api_predict(req: PredictRequest, request: Request):
         _predict, [req.smiles], req.n_mc,
         ensemble=ensemble, task_names=s.task_names,
         temperature=temperature, device=s.device,
+        fp_model=s.fp_models.get(model_key),
     )
     try:
         means_list, stds_list, _ = future.result(timeout=60)

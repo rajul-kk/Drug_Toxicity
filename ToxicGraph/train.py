@@ -297,6 +297,24 @@ def train():
     print(f"\n=== Calibrated Test Results (T={temperature:.4f}) ===")
     eval_full_metrics(ensemble, test_loader, num_tasks, device, all_tasks, temperature=temperature)
 
+    # ── Fingerprint RF baseline ──────────────────────────────────────────────
+    from torch_geometric.loader import DataLoader as _DL
+    from src.fp_model import FPEnsemble as _FPE
+    import numpy as _np
+
+    print("\nTraining fingerprint RF baseline...")
+    _fp_list, _y_list = [], []
+    for _batch in _DL(train_dataset, batch_size=256, shuffle=False, num_workers=0):
+        _fp_list.append(_batch.fp.numpy())
+        _y_list.append(_batch.y.numpy())
+    _X = _np.vstack(_fp_list)
+    _Y = _np.vstack(_y_list)
+
+    _fp_ens = _FPE(n_estimators=300)
+    _fp_ens.fit(_X, _Y)
+    _fp_ens.save(os.path.join(out_dir, 'fp_model.pkl'))
+    print(f"  RF: trained {len(_fp_ens.models)} / {num_tasks} task models")
+
 
 if __name__ == '__main__':
     train()

@@ -8,7 +8,7 @@ from src.calibration import mc_sample
 
 
 def predict(smiles_list, n_mc=20, ensemble=None, task_names=None, temperature=None,
-            config=None, device=None, model_dir='.'):
+            config=None, device=None, model_dir='.', fp_model=None):
     """
     Returns (means, stds, task_names).
     Pass pre-loaded ensemble/task_names/temperature for the web app path.
@@ -42,6 +42,12 @@ def predict(smiles_list, n_mc=20, ensemble=None, task_names=None, temperature=No
         data = data.to(device)
         mean_logits, std_logits = mc_sample(ensemble, data, n_samples=n_mc)
         mean_probs = torch.sigmoid(mean_logits / temperature).cpu().numpy().flatten()
+        if fp_model is not None:
+            from src.fp_model import smiles_to_fp as _s2fp
+            _fp = _s2fp(smiles)
+            if _fp is not None:
+                _rf = fp_model.predict_proba(_fp[None], len(mean_probs))[0]
+                mean_probs = 0.7 * mean_probs + 0.3 * _rf
         std_probs = std_logits.cpu().numpy().flatten()
         means.append(mean_probs)
         stds.append(std_probs)
