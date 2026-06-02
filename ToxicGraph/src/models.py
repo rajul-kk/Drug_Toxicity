@@ -30,7 +30,7 @@ class TaskHead(nn.Module):
 
 class GNN(torch.nn.Module):
     def __init__(self, num_node_features, hidden_channels, num_classes,
-                 heads=4, edge_dim=8, task_dim=64, fp_dim=64):
+                 heads=4, edge_dim=8, task_dim=64, fp_dim=64, fp_bits=679):
         super().__init__()
         head_dim = hidden_channels // heads
 
@@ -52,7 +52,7 @@ class GNN(torch.nn.Module):
 
         self.fp_dim = fp_dim
         if fp_dim > 0:
-            self.fp_proj = nn.Sequential(nn.Linear(512, fp_dim), nn.ReLU())
+            self.fp_proj = nn.Sequential(nn.Linear(fp_bits, fp_dim), nn.ReLU())
         self.task_head = TaskHead(2 * hidden_channels + fp_dim, num_classes, task_dim)
 
     def forward(self, x, edge_index=None, edge_attr=None, batch=None):
@@ -78,7 +78,7 @@ class GNN(torch.nn.Module):
 
         if self.fp_dim > 0:
             if fp is None:
-                fp = x.new_zeros(mol.shape[0], 512)
+                fp = x.new_zeros(mol.shape[0], self.fp_proj[0].in_features)
             mol = torch.cat([mol, self.fp_proj(fp)], dim=-1)   # (B, 2H + fp_dim)
 
         return self.task_head(mol)
@@ -86,7 +86,7 @@ class GNN(torch.nn.Module):
 
 class DMPNN(nn.Module):
     def __init__(self, num_node_features, num_edge_features, hidden_channels,
-                 num_classes, depth=4, task_dim=64, fp_dim=64):
+                 num_classes, depth=4, task_dim=64, fp_dim=64, fp_bits=679):
         super().__init__()
         self.hidden_channels = hidden_channels
         self.depth = depth
@@ -102,7 +102,7 @@ class DMPNN(nn.Module):
 
         self.fp_dim = fp_dim
         if fp_dim > 0:
-            self.fp_proj = nn.Sequential(nn.Linear(512, fp_dim), nn.ReLU())
+            self.fp_proj = nn.Sequential(nn.Linear(fp_bits, fp_dim), nn.ReLU())
         self.task_head = TaskHead(2 * hidden_channels + fp_dim, num_classes, task_dim)
 
     def forward(self, x, edge_index=None, edge_attr=None, batch=None):
@@ -121,7 +121,7 @@ class DMPNN(nn.Module):
             mol = self.dropout_out(self.set2set(atom_out, batch))
             if self.fp_dim > 0:
                 if fp is None:
-                    fp = x.new_zeros(mol.shape[0], 512)
+                    fp = x.new_zeros(mol.shape[0], self.fp_proj[0].in_features)
                 mol = torch.cat([mol, self.fp_proj(fp)], dim=-1)
             return self.task_head(mol)
 
@@ -147,7 +147,7 @@ class DMPNN(nn.Module):
 
         if self.fp_dim > 0:
             if fp is None:
-                fp = x.new_zeros(mol.shape[0], 512)
+                fp = x.new_zeros(mol.shape[0], self.fp_proj[0].in_features)
             mol = torch.cat([mol, self.fp_proj(fp)], dim=-1)
 
         return self.task_head(mol)
@@ -181,6 +181,7 @@ def build_and_load_ensemble(config, device, model_dir='.'):
     depth = config['model'].get('depth', 4)
     task_dim = config['model'].get('task_dim', 64)
     fp_dim = config['model'].get('fp_dim', 64)
+    fp_bits = config['model'].get('fp_bits', 679)
     model_type = config['model'].get('type', 'gnn')
     ensemble_size = config['model'].get('ensemble_size', 3)
 
@@ -190,9 +191,9 @@ def build_and_load_ensemble(config, device, model_dir='.'):
         if not os.path.exists(path):
             raise FileNotFoundError(f'{path} not found — run train.py first')
         if model_type == 'dmpnn':
-            m = DMPNN(num_node_features, edge_dim, hidden, num_classes, depth=depth, task_dim=task_dim, fp_dim=fp_dim).to(device)
+            m = DMPNN(num_node_features, edge_dim, hidden, num_classes, depth=depth, task_dim=task_dim, fp_dim=fp_dim, fp_bits=fp_bits).to(device)
         else:
-            m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim, task_dim=task_dim, fp_dim=fp_dim).to(device)
+            m = GNN(num_node_features, hidden, num_classes, edge_dim=edge_dim, task_dim=task_dim, fp_dim=fp_dim, fp_bits=fp_bits).to(device)
         m.load_state_dict(torch.load(path, map_location=device))
         m.eval()
         # torch.compile is intentionally skipped: compiled wrappers store the

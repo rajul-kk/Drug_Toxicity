@@ -2,10 +2,11 @@ dataset:
   root: 'data'
   names: [tox21, clintox, sider, bbbp, hiv]
 model:
-  type: dmpnn   # gnn | dmpnn
+  type: gnn # gnn | dmpnn
   hidden_channels: 256
   task_dim: 64
   fp_dim: 64        # Morgan fingerprint projection dim; used by Task 4
+  fp_bits: 679      # Morgan(512) + MACCS(167)
   ensemble_size: 5
   depth: 5
 training:

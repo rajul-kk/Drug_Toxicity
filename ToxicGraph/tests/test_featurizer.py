@@ -10,7 +10,7 @@ def test_fp_attribute_present():
 
 def test_fp_shape():
     data = smiles_to_graph('c1ccccc1')
-    assert data.fp.shape == (1, 512), f"Expected (1, 512), got {data.fp.shape}"
+    assert data.fp.shape == (1, 679), f"Expected (1, 679), got {data.fp.shape}"
 
 
 def test_fp_dtype():

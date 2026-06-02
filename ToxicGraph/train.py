@@ -209,6 +209,7 @@ def train():
     depth = config['model'].get('depth', 4)
     task_dim = config['model'].get('task_dim', 64)
     fp_dim = config['model'].get('fp_dim', 64)
+    fp_bits = config['model'].get('fp_bits', 679)
 
     date_str = datetime.date.today().strftime('%Y%m%d')
     ds_key = '-'.join(n[:3] for n in config['dataset']['names'])
@@ -233,8 +234,8 @@ def train():
 
     def build_model():
         if model_type == 'dmpnn':
-            return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth, task_dim=task_dim, fp_dim=fp_dim).to(device)
-        return GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim, task_dim=task_dim, fp_dim=fp_dim).to(device)
+            return DMPNN(num_node_features, edge_dim, hidden, num_tasks, depth=depth, task_dim=task_dim, fp_dim=fp_dim, fp_bits=fp_bits).to(device)
+        return GNN(num_node_features, hidden, num_tasks, edge_dim=edge_dim, task_dim=task_dim, fp_dim=fp_dim, fp_bits=fp_bits).to(device)
 
     print(f"Model: {model_type.upper()}  hidden={hidden}  task_dim={task_dim}  depth/layers={depth}  ensemble={ensemble_size}")
 

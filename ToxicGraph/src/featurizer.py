@@ -6,7 +6,7 @@ import torch
 from functools import lru_cache
 from torch_geometric.data import Data
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, MACCSkeys
 from rdkit.DataStructs import ConvertToNumpyArray
 
 RDLogger.DisableLog('rdApp.*')  # suppress UFFTYPER / sanitisation warnings
@@ -156,10 +156,16 @@ def smiles_to_graph(smiles):
     x = torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
     edge_attr = torch.nan_to_num(edge_attr, nan=0.0, posinf=0.0, neginf=0.0)
 
-    fp_obj = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=512)
-    fp_arr = np.zeros(512, dtype=np.float32)
-    ConvertToNumpyArray(fp_obj, fp_arr)
-    fp = torch.tensor(fp_arr, dtype=torch.float).unsqueeze(0)   # (1, 512)
+    morgan_obj = AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=512)
+    morgan_arr = np.zeros(512, dtype=np.float32)
+    ConvertToNumpyArray(morgan_obj, morgan_arr)
+
+    maccs_obj = MACCSkeys.GenMACCSKeys(mol)
+    maccs_arr = np.zeros(167, dtype=np.float32)
+    ConvertToNumpyArray(maccs_obj, maccs_arr)
+
+    fp = torch.tensor(np.concatenate([morgan_arr, maccs_arr]),
+                      dtype=torch.float).unsqueeze(0)   # (1, 679)
 
     return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, fp=fp)
 
