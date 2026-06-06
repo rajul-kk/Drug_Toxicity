@@ -4,9 +4,25 @@ import gzip
 import shutil
 import pandas as pd
 import torch
-from torch_geometric.data import InMemoryDataset, download_url
+import requests
+from torch_geometric.data import InMemoryDataset
 from src.featurizer import smiles_to_graph, FEATURIZER_HASH
 from tqdm import tqdm
+
+
+def _download_file(url: str, dest_dir: str, filename: str) -> str:
+    """Download url → dest_dir/filename using requests (avoids urllib 403s on S3)."""
+    os.makedirs(dest_dir, exist_ok=True)
+    dest = os.path.join(dest_dir, filename)
+    if os.path.exists(dest):
+        return dest
+    headers = {'User-Agent': 'Mozilla/5.0 (compatible; ToxicGraph/1.0)'}
+    with requests.get(url, headers=headers, stream=True, timeout=120) as r:
+        r.raise_for_status()
+        with open(dest, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=65536):
+                f.write(chunk)
+    return dest
 
 TOX21_TASKS = [
     'NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase',
@@ -114,6 +130,26 @@ DATASET_CONFIGS = {
         'tasks': ['CYP1A2', 'CYP2C9', 'CYP2C19', 'CYP2D6', 'CYP3A4'],
         'gzip': True,
     },
+    # hERG cardiac ion channel blockade (Karim et al. 2019): ~13k compounds, binary.
+    # IC50 < 10 µM → blocker (1). #1 cause of drug withdrawal — QT prolongation.
+    # If auto-download fails, place the CSV at data/raw/herg.csv with cols: smiles, label
+    'herg': {
+        'url': 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/herg_karim.csv',
+        'smiles_col': 'smiles',
+        'tasks': ['herg_blocker'],
+        'col_map': {'label': 'herg_blocker'},
+        'gzip': False,
+    },
+    # Drug-induced liver injury (DILIst, Liu et al. 2015): ~1.8k FDA-approved drugs, binary.
+    # DILI+ (1) = concern; DILI- (0) = no concern. #1 cause of drug market withdrawals.
+    # If auto-download fails, place the CSV at data/raw/dili.csv with cols: smiles, label
+    'dili': {
+        'url': 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/DILI.csv',
+        'smiles_col': 'smiles',
+        'tasks': ['dili_concern'],
+        'col_map': {'label': 'dili_concern'},
+        'gzip': False,
+    },
 }
 
 
@@ -138,7 +174,8 @@ class ToxicDataset(InMemoryDataset):
         cfg = DATASET_CONFIGS.get(self.name)
         if cfg is None:
             raise ValueError(f"Dataset '{self.name}' not supported. Choose from: {list(DATASET_CONFIGS)}")
-        path = download_url(cfg['url'], self.raw_dir)
+        raw_filename = cfg['url'].split('/')[-1]
+        path = _download_file(cfg['url'], self.raw_dir, raw_filename)
         if cfg['gzip']:
             with gzip.open(path, 'rb') as f_in:
                 with open(os.path.join(self.raw_dir, f'{self.name}.csv'), 'wb') as f_out:
@@ -149,6 +186,9 @@ class ToxicDataset(InMemoryDataset):
         cfg = DATASET_CONFIGS[self.name]
         smiles_col = cfg['smiles_col']
         df = pd.read_csv(self.raw_paths[0])
+        col_map = cfg.get('col_map', {})
+        if col_map:
+            df = df.rename(columns=col_map)
         # tasks=None means every column except smiles_col is a task (e.g. ToxCast)
         tasks = cfg['tasks'] if cfg['tasks'] is not None else [c for c in df.columns if c != smiles_col]
         for task in tasks:
@@ -222,7 +262,8 @@ class MultiToxDataset(InMemoryDataset):
             if os.path.exists(csv_path):
                 continue
             cfg = DATASET_CONFIGS[n]
-            path = download_url(cfg['url'], self.raw_dir)
+            raw_filename = cfg['url'].split('/')[-1]
+            path = _download_file(cfg['url'], self.raw_dir, raw_filename)
             if cfg['gzip']:
                 with gzip.open(path, 'rb') as f_in:
                     with open(csv_path, 'wb') as f_out:
@@ -238,6 +279,9 @@ class MultiToxDataset(InMemoryDataset):
             tasks, smiles_col = cfg['tasks'], cfg['smiles_col']
             start, end = self.task_ranges[n]
             df = pd.read_csv(os.path.join(self.raw_dir, f'{n}.csv'))
+            col_map = cfg.get('col_map', {})
+            if col_map:
+                df = df.rename(columns=col_map)
             for task in tasks:
                 df[task] = pd.to_numeric(df[task], errors='coerce')
 

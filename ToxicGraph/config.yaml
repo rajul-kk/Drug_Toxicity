@@ -1,14 +1,17 @@
 dataset:
   root: 'data'
-  names: [tox21, clintox, sider, bbbp, hiv]
+  # Toxicity/safety endpoints — trained jointly in the GNN/DMPNN ensemble.
+  names: [tox21, clintox, sider, ames, cyp450, herg, dili]
+  # Pharmacological activity endpoints — RF fingerprint model only (train_activity.py).
+  activity_names: [bbbp, hiv]
 model:
-  type: gnn # gnn | dmpnn
+  type: dmpnn
   hidden_channels: 256
   task_dim: 64
-  fp_dim: 64        # Morgan fingerprint projection dim; used by Task 4
+  fp_dim: 64
   fp_bits: 679      # Morgan(512) + MACCS(167)
-  ensemble_size: 5
-  depth: 5
+  ensemble_size: 4
+  depth: 4
 training:
   batch_size: 64
   learning_rate: 0.0003
@@ -18,5 +21,7 @@ training:
     tox21:   1.0
     clintox: 4.0
     sider:   5.0
-    bbbp:    4.0
-    hiv:     0.3
+    ames:    2.0
+    cyp450:  1.5
+    herg:    3.0
+    dili:    4.0
