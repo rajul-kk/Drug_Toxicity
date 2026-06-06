@@ -8,6 +8,7 @@ import {
 } from './state.js';
 import { init3dViewer } from './viewer.js';
 import { historyAdd } from './history.js';
+import { fetchAndRenderActivity } from './activity.js';
 
 // ── plotly chart ───────────────────────────────
 export function renderChart(isTestSet, gt) {
@@ -424,11 +425,13 @@ export async function runPredict() {
   syncHashToUrl(smiles);
   historyAdd({smiles, topProb: data.max_auc, topTask: data.top_task, isTestSet: false});
 
-  // non-blocking properties fetch
+  // non-blocking parallel fetches — properties and activity predictions
   fetch(`/api/properties/${encodeURIComponent(smiles)}`)
     .then(r => r.ok ? r.json() : null)
     .then(renderProperties)
     .catch(() => {});
+
+  fetchAndRenderActivity(smiles);
 
   setIsPredicting(false);
   if (queryBtn) queryBtn.disabled = false;

@@ -8,6 +8,7 @@ import {
 import { fetchBrowse } from './browse.js';
 import { historyRender } from './history.js';
 import { renderChart, renderTable, runPredict } from './predict.js';
+import { setActivityAvailable } from './activity.js';
 
 // ── view switching ─────────────────────────────
 export function showView(name, btn) {
@@ -95,11 +96,13 @@ export async function boot() {
     const info = await r.json();
 
     setTaskNames(info.task_names);
-    APP.taskNames   = info.task_names;
-    APP.taskGroups  = info.task_groups;
-    APP.dsColors    = info.dataset_colors;
-    APP.models      = info.available_models;
-    APP.activeModel = info.available_models.length > 1 ? null : info.default_model;
+    setActivityAvailable(info.activity_available || false);
+    APP.taskNames      = info.task_names;
+    APP.taskGroups     = info.task_groups;
+    APP.dsColors       = info.dataset_colors;
+    APP.models         = info.available_models;
+    APP.activeModel    = info.available_models.length > 1 ? null : info.default_model;
+    APP.activityTasks  = info.activity_tasks || [];
 
     // populate model toggle
     const mt = document.getElementById('model-toggle');

@@ -8,9 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css?v=7">
 <link rel="stylesheet" href="/static/landing.css?v=3">
-<link rel="stylesheet" href="/static/app.css?v=6">
+<link rel="stylesheet" href="/static/app.css?v=7">
 <link rel="stylesheet" href="/static/components.css?v=2">
-<script type="module" src="/static/dist/bundle.js?v=3"></script>
+<script type="module" src="/static/dist/bundle.js?v=4"></script>
 </head>
 <body class="landing-mode">
 
@@ -212,6 +212,42 @@
           <button class="batch-run-btn" onclick="runBatch()">Run all →</button>
           <div id="batch-results"></div>
         </div>
+      </div>
+
+      <!-- Activity profiling card — RF model for BBBP + HIV -->
+      <div class="activity-card" id="activity-card" style="display:none">
+        <div class="act-header">
+          <span class="act-title">Activity Profiling</span>
+          <span class="act-model-badge">RF · Fingerprint Model</span>
+        </div>
+        <div class="act-body">
+
+          <div class="act-endpoint">
+            <div class="act-ep-header">
+              <span class="act-ep-name">BBB Permeability</span>
+              <span class="act-ep-status" id="act-bbbp-status"></span>
+            </div>
+            <div class="act-ep-desc">Blood-brain barrier penetration · Martins et al. 2012</div>
+            <div class="act-ep-row">
+              <div class="act-track"><div class="act-fill" id="act-bbbp-fill" style="width:0%"></div></div>
+              <span class="act-prob" id="act-bbbp-prob">—</span>
+            </div>
+          </div>
+
+          <div class="act-endpoint">
+            <div class="act-ep-header">
+              <span class="act-ep-name">HIV Antiviral Activity</span>
+              <span class="act-ep-status" id="act-hiv-status"></span>
+            </div>
+            <div class="act-ep-desc">HIV replication inhibition · Wu et al. 2018</div>
+            <div class="act-ep-row">
+              <div class="act-track"><div class="act-fill" id="act-hiv-fill" style="width:0%"></div></div>
+              <span class="act-prob" id="act-hiv-prob">—</span>
+            </div>
+          </div>
+
+        </div>
+        <div class="act-note">Morgan(512) + MACCS(167) fingerprints · 300-tree RandomForest per task</div>
       </div>
 
     </div>
