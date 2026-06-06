@@ -24,6 +24,7 @@ from slowapi.errors import RateLimitExceeded
 from src.models import build_and_load_ensemble
 from src.dataset import DATASET_CONFIGS
 from src.utils import smiles_to_sdf
+from src.activity_model import ActivityModel, ACTIVITY_TASKS
 from evaluate import collect_predictions, load_test_dataset
 from inference import predict as _predict
 
@@ -33,8 +34,8 @@ DS_COLORS = {
     'sider':   '#1d4ed8',
     'cyp450':  '#b45309',
     'ames':    '#dc2626',
-    'bbbp':    '#0891b2',
-    'hiv':     '#7c3aed',
+    'herg':    '#be185d',
+    'dili':    '#9a3412',
 }
 
 
@@ -158,14 +159,24 @@ async def lifespan(app: FastAPI):
             "Run train.py first."
         )
 
-    app.state.ensembles    = ensembles
-    app.state.test_caches  = test_caches
-    app.state.fp_models    = {arch: tc.get('fp_model') for arch, tc in test_caches.items()}
-    app.state.task_names   = task_names
-    app.state.task_groups  = task_groups
-    app.state.default_model = config['model'].get('type', 'gnn')
-    app.state.device       = device
-    app.state.executor     = ThreadPoolExecutor(max_workers=1)
+    _act_path = os.path.join('checkpoints', 'activity', 'activity_rf.pkl')
+    if os.path.exists(_act_path):
+        activity_model = ActivityModel.load(_act_path)
+        print(f'  activity: loaded RF model ({_act_path})')
+    else:
+        activity_model = None
+        print('  activity: no model found — run python train_activity.py')
+
+    app.state.ensembles      = ensembles
+    app.state.test_caches    = test_caches
+    app.state.fp_models      = {arch: tc.get('fp_model') for arch, tc in test_caches.items()}
+    app.state.task_names     = task_names
+    app.state.task_groups    = task_groups
+    app.state.default_model  = config['model'].get('type', 'gnn')
+    app.state.device         = device
+    app.state.executor       = ThreadPoolExecutor(max_workers=1)
+    app.state.activity_model = activity_model
+    app.state.activity_tasks = ACTIVITY_TASKS
 
     # warm smiles_to_sdf lru_cache after server is live — daemon so it doesn't block shutdown
     import threading
@@ -243,11 +254,32 @@ def index(request: Request):
 def api_info(request: Request):
     s = request.app.state
     return {
-        'available_models': list(s.ensembles.keys()),
-        'default_model':    s.default_model,
-        'task_names':       s.task_names,
-        'task_groups':      s.task_groups,
-        'dataset_colors':   DS_COLORS,
+        'available_models':   list(s.ensembles.keys()),
+        'default_model':      s.default_model,
+        'task_names':         s.task_names,
+        'task_groups':        s.task_groups,
+        'dataset_colors':     DS_COLORS,
+        'activity_tasks':     s.activity_tasks,
+        'activity_available': s.activity_model is not None,
+    }
+
+
+# ── /api/activity ─────────────────────────────────────────────────────────────
+
+@app.get('/api/activity')
+@limiter.limit('30/minute')
+def api_activity(smiles: str, request: Request):
+    """RF fingerprint predictions for BBBP (BBB permeability) and HIV antiviral activity."""
+    s = request.app.state
+    if s.activity_model is None:
+        raise HTTPException(503, 'Activity model not loaded — run python train_activity.py')
+    result = s.activity_model.predict(smiles)
+    if result is None:
+        raise HTTPException(422, 'Invalid SMILES')
+    return {
+        'predictions': result,
+        'tasks':       s.activity_tasks,
+        'model_type':  'rf_fingerprint',
     }
 
 
