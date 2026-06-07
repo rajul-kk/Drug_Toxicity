@@ -1,22 +1,41 @@
-.venv/
-.git/
-.superpowers/
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 .pytest_cache/
+.venv/
+venv/
 
-# large runtime data — mounted as volumes
+# Node
+node_modules/
+package-lock.json
+
+# Data and model files — mounted as volumes at runtime
 data/
 checkpoints/
 
-# dev/demo files not needed in the image
+# Logs and local outputs
+*.log
+train_log.txt
+log.txt
+src/results.txt
+explanations/
+
+# Dev/notebook files
 notebooks/
 tests/
-demo_*.html
-explanations/
+*.ipynb
+
+# Mockups and scratch files
+web/mockup_*.html
+demo_bg_*.html
+AATHER.*
+Neuralink.*
+Handshake.*
+handshake.*
+docs/
+
+# Misc
+.env
+.git/
+.superpowers/
 *.png
-*.log
-log.txt
-train_log.txt
-src/results.txt
