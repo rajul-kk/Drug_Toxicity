@@ -1,37 +1,97 @@
 /* ─ HERO / LANDING VIEW ─────────────────────────── */
-.hero{position:relative;z-index:1;padding:80px 40px 60px;max-width:1100px;margin:0 auto;
-      display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
-.hero-text .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:2.5px;
-  text-transform:uppercase;color:var(--purple-lt);margin-bottom:16px}
-.hero-text h1{font-family:var(--serif);font-size:clamp(36px,4.5vw,56px);line-height:1.1;
-  letter-spacing:-1px;color:var(--text);margin-bottom:20px}
-.hero-text h1 em{font-style:italic;color:var(--purple)}
-.hero-text p{font-size:15px;color:var(--text-2);max-width:380px;line-height:1.7;margin-bottom:28px}
-.hero-stats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--border-md);
-  border-radius:var(--radius);background:var(--surface);overflow:hidden;box-shadow:var(--shadow-sm)}
-.hs-item{padding:16px 20px;border-right:1px solid var(--border);text-align:center}
-.hs-item:last-child{border-right:none}
-.hs-num{font-family:var(--serif);font-size:30px;line-height:1;margin-bottom:4px;letter-spacing:-.5px}
-.hs-num.g{color:var(--green)}.hs-num.p{color:var(--purple)}.hs-num.b{color:var(--blue)}
-.hs-label{font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:1.5px}
-.hero-cta{padding:11px 24px;border-radius:10px;border:none;font-family:var(--sans);font-size:14px;
-  font-weight:600;cursor:pointer;transition:all .15s}
-.hero-cta:not(.secondary){background:var(--purple);color:#fff}
-.hero-cta:not(.secondary):hover{background:var(--purple-lt)}
-.hero-cta.secondary{background:var(--surface);color:var(--text-2);border:1px solid var(--border-md)}
-.hero-cta.secondary:hover{border-color:var(--purple);color:var(--purple)}
-.hero-mol-preview{background:var(--surface);border:1px solid var(--border-md);
-  border-radius:20px;overflow:hidden;box-shadow:var(--shadow-lg)}
-.hmp-header{padding:14px 18px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;justify-content:space-between}
-.hmp-dots{display:flex;gap:6px}
-.hmp-dot{width:10px;height:10px;border-radius:50%}
-.hmp-label{font-family:var(--mono);font-size:11px;color:var(--text-3)}
-.hmp-viewer{height:240px;background:#f0f4ff;position:relative}
-.hmp-footer{padding:12px 18px;border-top:1px solid var(--border)}
-.hmp-smiles{font-family:var(--mono);font-size:11px;color:var(--purple);margin-bottom:8px}
-.hmp-badges{display:flex;gap:6px;flex-wrap:wrap}
-@media(max-width:700px){
-  .hero{grid-template-columns:1fr;padding:40px 20px}
-  .hero-mol-preview{display:none}
+
+/* landing body is black so particles render white-on-black */
+body.landing-mode { background: #000; }
+
+.hero {
+  position: relative; z-index: 1;
+  padding: 80px 40px 60px; max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 60px; align-items: center;
+  min-height: calc(100vh - 63px);
+}
+
+/* ── text side ─────────────────────────────────── */
+.hero-text .eyebrow {
+  font-family: var(--sans); font-size: 11px; font-weight: 300;
+  color: #bababa; letter-spacing: 0.14em; text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.hero-text h1 {
+  font-family: var(--sans); font-size: clamp(34px, 3.8vw, 50px);
+  font-weight: 300; line-height: 1.1; letter-spacing: -0.02em;
+  color: #fff; margin-bottom: 20px;
+}
+.hero-text h1 em { font-style: normal; font-weight: 200; color: rgba(255,255,255,0.62); }
+
+.hero-text p {
+  font-size: 15px; font-weight: 300; color: rgba(255,255,255,0.42);
+  max-width: 400px; line-height: 1.7; margin-bottom: 32px;
+  letter-spacing: -0.01em;
+}
+
+.hero-stats {
+  display: flex; border: none; background: none;
+  box-shadow: none; margin-bottom: 36px; padding-bottom: 36px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.hs-item {
+  padding: 0 36px 0 0; margin-right: 36px;
+  border-right: 1px solid rgba(255,255,255,0.1);
+  text-align: left; background: none;
+}
+.hs-item:last-child { border-right: none; padding-right: 0; margin-right: 0; }
+
+.hs-num {
+  font-family: var(--sans); font-size: 38px; font-weight: 200;
+  line-height: 1; letter-spacing: -0.02em; margin-bottom: 4px;
+}
+.hs-num.g, .hs-num.p, .hs-num.b { color: #fff; }
+.hs-label { font-size: 10px; color: rgba(255,255,255,0.38); letter-spacing: 0.12em; text-transform: uppercase; }
+
+.hero-cta {
+  padding: 11px 26px; border-radius: 80px; border: none;
+  font-family: var(--sans); font-size: 14px; font-weight: 400; cursor: pointer;
+  letter-spacing: -0.01em; transition: opacity .15s;
+}
+.hero-cta:not(.secondary) { background: #fff; color: #000; }
+.hero-cta:not(.secondary):hover { opacity: .86; }
+.hero-cta.secondary {
+  background: transparent; color: rgba(255,255,255,0.75);
+  border: 1px solid rgba(255,255,255,0.25);
+}
+.hero-cta.secondary:hover { border-color: rgba(255,255,255,0.55); color: #fff; }
+
+/* ── molecule card ─────────────────────────────── */
+.hero-mol-preview {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; overflow: hidden;
+}
+.hmp-header {
+  padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.07);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.hmp-dots { display: flex; gap: 6px; }
+.hmp-dot { width: 10px; height: 10px; border-radius: 50%; }
+.hmp-label { font-family: var(--mono); font-size: 11px; color: rgba(255,255,255,0.3); }
+.hmp-viewer { height: 280px; background: #060606; position: relative; }
+.hmp-footer { padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.07); }
+.hmp-smiles {
+  font-family: var(--mono); font-size: 11px; color: rgba(255,255,255,0.38);
+  margin-bottom: 8px; cursor: pointer; transition: color .15s;
+}
+.hmp-smiles:hover { color: rgba(255,255,255,0.7); }
+.hmp-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ── section transition: black → linen ─────────── */
+.hero-transition {
+  height: 80px; position: relative; z-index: 1;
+  background: linear-gradient(to bottom, #000 0%, #f5f5f5 100%);
+}
+
+@media(max-width:700px) {
+  .hero { grid-template-columns: 1fr; padding: 40px 24px; min-height: auto; }
+  .hero-mol-preview { display: none; }
 }

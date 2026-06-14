@@ -30,24 +30,37 @@ export function historyRender() {
     return;
   }
 
-  el.innerHTML = list.map((e, i) => {
-    const probCol = e.topProb >= 0.7 ? 'var(--red)' : e.topProb >= 0.4 ? 'var(--amber)' : 'var(--text-3)';
-    const badge = e.isTestSet
-      ? `<span class="ds-pill ${e.dataset||''}" style="font-size:9px">${e.dataset||'test'}</span>`
-      : `<span class="mch-badge new" style="font-size:9px;padding:1px 6px">new</span>`;
-    return `<div class="hist-item" onclick="historyOpen(${i})" title="${e.smiles}">
-      <img class="hist-thumb" src="/api/thumbnail/${encodeURIComponent(e.smiles)}?size=60"
-           onerror="this.style.display='none'" alt="" loading="lazy">
-      <div class="hist-info">
-        <div class="hist-smiles">${e.smiles.length>22 ? e.smiles.slice(0,22)+'…' : e.smiles}</div>
-        <div class="hist-meta">
-          ${badge}
-          <span style="font-family:var(--mono);font-size:10px;color:${probCol}">${e.topProb.toFixed(3)}</span>
+  // Group by dataset, preserving order of first appearance
+  const groups = new Map();
+  list.forEach((e, i) => {
+    const key = e.isTestSet ? (e.dataset || 'unknown') : 'new';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({...e, _idx: i});
+  });
+
+  const html = [];
+  groups.forEach((entries, key) => {
+    html.push(`<div class="hist-group-label">${key === 'new' ? 'New' : key}</div>`);
+    entries.forEach(e => {
+      const probCol = e.topProb >= 0.7 ? 'var(--red)' : e.topProb >= 0.4 ? 'var(--amber)' : 'var(--text-3)';
+      const badge = e.isTestSet
+        ? `<span class="ds-pill ${e.dataset||''}" style="font-size:9px">${e.dataset||'test'}</span>`
+        : `<span class="mch-badge new" style="font-size:9px;padding:1px 6px">new</span>`;
+      html.push(`<div class="hist-item" onclick="historyOpen(${e._idx})" title="${e.smiles}">
+        <img class="hist-thumb" src="/api/thumbnail/${encodeURIComponent(e.smiles)}?size=60"
+             onerror="this.style.display='none'" alt="" loading="lazy">
+        <div class="hist-info">
+          <div class="hist-smiles">${e.smiles.length>22 ? e.smiles.slice(0,22)+'…' : e.smiles}</div>
+          <div class="hist-meta">
+            ${badge}
+            <span style="font-family:var(--mono);font-size:10px;color:${probCol}">${e.topProb.toFixed(3)}</span>
+          </div>
+          <div class="hist-task">${e.topTask||'—'}</div>
         </div>
-        <div class="hist-task">${e.topTask||'—'}</div>
-      </div>
-    </div>`;
-  }).join('');
+      </div>`);
+    });
+  });
+  el.innerHTML = html.join('');
 }
 
 export function historyOpen(i) {

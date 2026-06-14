@@ -11,29 +11,38 @@ import { historyAdd } from './history.js';
 import { fetchAndRenderActivity } from './activity.js';
 
 // ── plotly chart ───────────────────────────────
+const CHART_TOP_N = 15;
+
 export function renderChart(isTestSet, gt) {
   const means = state.means || [];
   const stds  = state.stds  || [];
   if (!means.length) return;
 
-  const colors  = means.map((_, i) => (DS_COLORS[i] || '#64748b') + 'cc');
-  const borders = means.map((_, i) => DS_COLORS[i] || '#64748b');
+  // Keep only top CHART_TOP_N tasks by probability
+  const topIdx = [...means.map((v, i) => ({v, i}))]
+    .sort((a, b) => b.v - a.v).slice(0, CHART_TOP_N).map(x => x.i)
+    .sort((a, b) => a - b); // restore original order for grouping
+  const topNames  = topIdx.map(i => TASK_NAMES[i]);
+  const topMeans  = topIdx.map(i => means[i]);
+  const topStds   = topIdx.map(i => stds[i] || 0);
+  const colors  = topIdx.map(i => (DS_COLORS[i] || '#64748b') + 'cc');
+  const borders = topIdx.map(i => DS_COLORS[i] || '#64748b');
   const modelLabel = (APP.models && APP.models[0]) ? APP.models[0].toUpperCase() : 'Model';
 
   const traces = [{
-    type: 'bar', x: TASK_NAMES, y: means,
-    error_y: {type:'data',array:stds,visible:true,color:'#9b9590',thickness:1.2,width:3},
+    type: 'bar', x: topNames, y: topMeans,
+    error_y: {type:'data',array:topStds,visible:true,color:'#9b9590',thickness:1.2,width:3},
     marker: {color: colors, line: {color: borders, width: 1}},
     hovertemplate: '<b>%{x}</b><br>prob: %{y:.3f} ± %{error_y.array:.3f}<extra></extra>',
     name: modelLabel,
   }];
 
   if (state.compareMode && state.meansB) {
-    const meansB = state.meansB;
-    const stdsB  = state.stdsB || meansB.map(() => 0);
+    const meansB = topIdx.map(i => state.meansB[i]);
+    const stdsB  = topIdx.map(i => (state.stdsB || [])[i] || 0);
     const labelB = (APP.models && APP.models[1]) ? APP.models[1].toUpperCase() : 'Model B';
     traces.push({
-      type: 'bar', x: TASK_NAMES, y: meansB,
+      type: 'bar', x: topNames, y: meansB,
       error_y: {type:'data',array:stdsB,visible:true,color:'#b45309',thickness:1.2,width:3},
       marker: {color: meansB.map(() => 'rgba(180,83,9,.35)'), line: {color: meansB.map(() => '#b45309'), width: 1}},
       hovertemplate: `<b>%{x}</b><br>${labelB}: %{y:.3f} ± %{error_y.array:.3f}<extra></extra>`,
@@ -41,11 +50,13 @@ export function renderChart(isTestSet, gt) {
     });
   }
 
+  const topIdxSet = new Set(topIdx);
   if (isTestSet && gt) {
     const showMissing = document.getElementById('show-missing-cb')?.checked || false;
     const gtX_pos=[], gtX_neg=[], gtX_mis=[];
     const gtY_pos=[], gtY_neg=[], gtY_mis=[];
     gt.forEach((v, i) => {
+      if (!topIdxSet.has(i)) return;
       if (v===1)      { gtX_pos.push(TASK_NAMES[i]); gtY_pos.push(1.02); }
       else if (v===0) { gtX_neg.push(TASK_NAMES[i]); gtY_neg.push(1.02); }
       else            { gtX_mis.push(TASK_NAMES[i]); gtY_mis.push(1.02); }
@@ -64,16 +75,18 @@ export function renderChart(isTestSet, gt) {
   if (APP.taskGroups && APP.dsColors) {
     let offset = -0.5;
     Object.entries(APP.taskGroups).forEach(([ds, tasks]) => {
-      const end = offset + tasks.length;
+      const visibleCount = tasks.filter(t => topIdxSet.has(TASK_NAMES.indexOf(t))).length;
+      if (!visibleCount) return;
+      const end = offset + visibleCount;
       const col = APP.dsColors[ds] || '#64748b';
-      shapes.push({type:'rect',x0:offset,x1:end,y0:0,y1:1.08,
+      shapes.push({type:'rect',x0:offset,x1:end,y0:0,y1:1,
         fillcolor:col+'08',line:{width:0},layer:'below'});
-      annotations.push({x:(offset+end)/2,y:1.06,xref:'x',yref:'y',text:ds,showarrow:false,
+      annotations.push({x:(offset+end)/2,y:1.13,xref:'x',yref:'paper',text:ds,showarrow:false,
         font:{size:10,color:col}});
       offset = end;
     });
   }
-  shapes.push({type:'line',x0:-0.5,x1:TASK_NAMES.length-0.5,y0:.5,y1:.5,
+  shapes.push({type:'line',x0:-0.5,x1:topNames.length-0.5,y0:.5,y1:.5,
     line:{color:'rgba(0,0,0,.1)',width:1,dash:'dot'}});
 
   const layout = {
@@ -189,7 +202,7 @@ export function renderTable() {
 // ── summary bars ───────────────────────────────
 export function updateSummaryBars(means, stds = []) {
   const top6 = [...means.map((v, i) => ({v, i}))]
-    .sort((a, b) => b.v - a.v).slice(0, 6);
+    .sort((a, b) => b.v - a.v).slice(0, 4);
   const barsHtml = top6.map(({v, i}) => {
     const col = v>=0.7 ? 'var(--green)' : v>=0.4 ? 'var(--blue-lt)' : 'var(--text-3)';
     const std = stds[i];
