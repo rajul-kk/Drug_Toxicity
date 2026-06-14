@@ -8,18 +8,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libxrender1 libxext6 libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install CPU-only PyTorch first to avoid pulling in the CUDA build (~2 GB saved)
-RUN pip install --no-cache-dir \
-    torch==2.10.0 \
-    --index-url https://download.pytorch.org/whl/cpu
-
-# Install torch-geometric and the rest of the dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir \
+# Install CPU-only torch and PyG first (avoids pulling the ~2 GB CUDA build).
+# torch==2.10.0+cpu is a different dist-tag from torch==2.10.0, so we install
+# it explicitly here and then skip those lines when reading requirements.txt.
+RUN pip install --no-cache-dir --timeout 120 \
+    torch==2.10.0+cpu \
     torch-geometric==2.7.0 \
-    --find-links https://data.pyg.org/whl/torch-2.10.0+cpu.html \
-    && pip install --no-cache-dir -r requirements.txt \
-        --ignore-installed torch torch-geometric
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://data.pyg.org/whl/torch-2.10.0+cpu.html
+
+# Install the rest of the dependencies, skipping the torch lines already handled
+COPY requirements.txt .
+RUN grep -vE "^torch" requirements.txt \
+    | pip install --no-cache-dir --timeout 120 -r /dev/stdin
 
 
 # ── stage 2: application ─────────────────────────────────────────────────────

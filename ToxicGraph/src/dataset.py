@@ -116,38 +116,39 @@ DATASET_CONFIGS = {
         'gzip': True,
     },
     # Ames mutagenicity (Kazius et al. 2005): ~6.5k compounds, 1 task.
+    # Pre-fetched via fetch_missing_data.py → data/raw/ames.csv
     'ames': {
         'url': 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/mutagenicity.csv.gz',
         'smiles_col': 'smiles',
         'tasks': ['mutagenic'],
-        'gzip': True,
+        'gzip': False,
     },
-    # CYP P450 inhibition (Veith et al. 2009): ~13k compounds, 5 isoforms.
+    # CYP P450 inhibition (TDC isoform datasets outer-joined): ~16k compounds, 5 isoforms.
     # Key ADMET endpoint — CYP inhibition drives most drug-drug interactions.
+    # Pre-fetched via fetch_missing_data.py → data/raw/cyp450.csv
     'cyp450': {
         'url': 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/cyp450.csv.gz',
         'smiles_col': 'smiles',
-        'tasks': ['CYP1A2', 'CYP2C9', 'CYP2C19', 'CYP2D6', 'CYP3A4'],
-        'gzip': True,
+        'tasks': ['cyp1a2_inhibitor', 'cyp2c9_inhibitor', 'cyp2d6_inhibitor',
+                  'cyp3a4_inhibitor', 'cyp2c19_inhibitor'],
+        'gzip': False,
     },
     # hERG cardiac ion channel blockade (Karim et al. 2019): ~13k compounds, binary.
     # IC50 < 10 µM → blocker (1). #1 cause of drug withdrawal — QT prolongation.
-    # If auto-download fails, place the CSV at data/raw/herg.csv with cols: smiles, label
+    # Pre-fetched via fetch_missing_data.py → data/raw/herg.csv
     'herg': {
         'url': 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/herg_karim.csv',
         'smiles_col': 'smiles',
         'tasks': ['herg_blocker'],
-        'col_map': {'label': 'herg_blocker'},
         'gzip': False,
     },
     # Drug-induced liver injury (DILIst, Liu et al. 2015): ~1.8k FDA-approved drugs, binary.
     # DILI+ (1) = concern; DILI- (0) = no concern. #1 cause of drug market withdrawals.
-    # If auto-download fails, place the CSV at data/raw/dili.csv with cols: smiles, label
+    # Pre-fetched via fetch_missing_data.py → data/raw/dili.csv
     'dili': {
         'url': 'https://deepchemdata.s3-us-west-1.amazonaws.com/datasets/DILI.csv',
         'smiles_col': 'smiles',
         'tasks': ['dili_concern'],
-        'col_map': {'label': 'dili_concern'},
         'gzip': False,
     },
 }

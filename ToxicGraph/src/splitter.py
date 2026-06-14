@@ -10,7 +10,10 @@ def _scaffold_split_indices(smiles_list, global_indices, train_frac, val_frac):
     for local_i, global_i in enumerate(global_indices):
         smi = smiles_list[global_i]
         mol = Chem.MolFromSmiles(smi)
-        sc = MurckoScaffold.MurckoScaffoldSmiles(mol=mol, includeChirality=False) if mol else smi
+        try:
+            sc = MurckoScaffold.MurckoScaffoldSmiles(mol=mol, includeChirality=False) if mol else smi
+        except Exception:
+            sc = smi
         scaffolds.setdefault(sc, []).append(local_i)
 
     groups = sorted(scaffolds.values(), key=len, reverse=True)

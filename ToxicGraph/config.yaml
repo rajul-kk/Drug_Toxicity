@@ -10,13 +10,13 @@ model:
   task_dim: 64
   fp_dim: 64
   fp_bits: 679      # Morgan(512) + MACCS(167)
-  ensemble_size: 4
+  ensemble_size: 2
   depth: 4
 training:
   batch_size: 64
   learning_rate: 0.0003
-  epochs: 120
-  early_stopping_patience: 18
+  epochs: 60
+  early_stopping_patience: 12
   dataset_weights:
     tox21:   1.0
     clintox: 4.0

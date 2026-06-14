@@ -7,7 +7,7 @@ from src.featurizer import smiles_to_graph
 from src.calibration import mc_sample
 
 
-def predict(smiles_list, n_mc=20, ensemble=None, task_names=None, temperature=None,
+def predict(smiles_list, n_mc=5, ensemble=None, task_names=None, temperature=None,
             config=None, device=None, model_dir='.', fp_model=None):
     """
     Returns (means, stds, task_names).
