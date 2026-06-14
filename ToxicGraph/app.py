@@ -21,6 +21,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
+from rdkit.Chem import AllChem, DataStructs
+
 from src.models import build_and_load_ensemble
 from src.dataset import DATASET_CONFIGS
 from src.utils import smiles_to_sdf
@@ -178,9 +180,18 @@ async def lifespan(app: FastAPI):
     app.state.activity_model = activity_model
     app.state.activity_tasks = ACTIVITY_TASKS
 
+    # Pre-compute Morgan FPs for all test-set molecules (used by /api/similar)
+    from rdkit import Chem as _Chem
+    _all_smiles = list({s for cache in test_caches.values() for s in cache['smiles']})
+    _fp_index = {}
+    for _smi in _all_smiles:
+        _mol = _Chem.MolFromSmiles(_smi)
+        if _mol:
+            _fp_index[_smi] = AllChem.GetMorganFingerprintAsBitVect(_mol, 2, 2048)
+    app.state.fp_index = _fp_index
+
     # warm smiles_to_sdf lru_cache after server is live — daemon so it doesn't block shutdown
     import threading
-    _all_smiles = list({s for cache in test_caches.values() for s in cache['smiles']})
     threading.Thread(
         target=lambda: [smiles_to_sdf(s) for s in _all_smiles],
         daemon=True,
@@ -408,6 +419,22 @@ def api_explain(smiles: str, request: Request, task: int = 0, model: Optional[st
     if result is None:
         raise HTTPException(422, 'Explanation failed — invalid SMILES or model error')
     return result
+
+
+# ── /api/similar ──────────────────────────────────────────────────────────────
+
+@app.get('/api/similar')
+@limiter.limit('30/minute')
+def api_similar(smiles: str, request: Request, n: int = 8):
+    from rdkit import Chem as _Chem
+    mol = _Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise HTTPException(422, 'Invalid SMILES')
+    qfp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, 2048)
+    fp_index = request.app.state.fp_index
+    scores = [(DataStructs.TanimotoSimilarity(qfp, fp), smi) for smi, fp in fp_index.items()]
+    top = sorted(scores, reverse=True)[:min(max(n, 1), 20)]
+    return [{'smiles': smi, 'tanimoto': round(sim, 3)} for sim, smi in top]
 
 
 # ── /api/properties ───────────────────────────────────────────────────────────
