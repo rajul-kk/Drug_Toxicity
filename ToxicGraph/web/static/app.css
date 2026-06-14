@@ -1,3 +1,17 @@
+/* ─ PRINT REPORT ────────────────────────────────── */
+#print-report{display:none}
+@media print{
+  body>*:not(#print-report){display:none!important}
+  #print-report{display:block!important;font-family:Georgia,serif;padding:24px;color:#000}
+  .pr-header{margin-bottom:16px;border-bottom:1px solid #ccc;padding-bottom:10px}
+  .pr-header h1{font-size:18px;margin:0 0 4px}
+  .pr-meta{font-size:11px;color:#555;font-family:monospace;margin-top:2px}
+  .pr-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}
+  .pr-table th,.pr-table td{border:1px solid #ccc;padding:5px 8px;text-align:left}
+  .pr-table th{background:#f4f4f4;font-weight:bold}
+  .pr-footer{font-size:10px;color:#888;margin-top:12px;text-align:center}
+}
+
 /* ─ PREDICT VIEW ────────────────────────────────── */
 .predict-layout{display:grid;grid-template-columns:1fr 1fr;gap:24px;
                 max-width:1100px;margin:0 auto;padding:32px 40px}
@@ -215,21 +229,31 @@
 .prop-badge.pass{background:rgba(4,120,87,.12);color:var(--green)}
 .prop-badge.fail{background:rgba(220,38,38,.10);color:var(--red)}
 
-/* ─ ACTIVITY PROFILING CARD ─────────────────── */
+/* ─ ACTIVITY PROFILING CARD (RF model) ──────── */
 .activity-card{
-  margin-top:12px;background:var(--surface);
-  border:1px solid var(--border);border-radius:12px;
-  overflow:hidden;
+  margin-top:16px;background:var(--surface);
+  border:1px solid var(--border);border-top:3px solid #b45309;
+  border-radius:12px;overflow:hidden;
 }
 .act-header{
   display:flex;align-items:center;justify-content:space-between;
   padding:10px 14px 8px;border-bottom:1px solid var(--border);
+  background:rgba(180,83,9,.04);
 }
-.act-title{font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.08em}
+.act-header-left{display:flex;flex-direction:column;gap:1px}
+.act-model-type{
+  font-size:9px;font-weight:700;font-family:var(--mono);
+  color:#b45309;text-transform:uppercase;letter-spacing:.1em;
+}
+.act-title{font-size:12px;font-weight:500;color:var(--text-2)}
 .act-model-badge{
   font-size:9px;font-family:var(--mono);color:var(--text-3);
   background:var(--surface2);border:1px solid var(--border);
   padding:2px 7px;border-radius:6px;
+}
+.act-model-badge.rf{
+  color:#b45309;background:rgba(180,83,9,.08);
+  border-color:rgba(180,83,9,.25);
 }
 .act-body{padding:10px 14px;display:flex;flex-direction:column;gap:10px}
 .act-endpoint{display:flex;flex-direction:column;gap:4px}
@@ -242,7 +266,36 @@
 .act-fill{height:100%;border-radius:3px;transition:width .35s ease,background .35s ease}
 .act-prob{font-family:var(--mono);font-size:12px;font-weight:600;width:42px;text-align:right;flex-shrink:0}
 .act-note{
-  font-size:9px;color:var(--text-3);text-align:center;
-  padding:6px 14px 8px;border-top:1px solid var(--border);
+  font-size:9px;color:#b45309;opacity:.65;text-align:center;
+  padding:6px 14px 8px;border-top:1px solid rgba(180,83,9,.12);
   text-transform:uppercase;letter-spacing:.05em;
+}
+
+/* ─ SIMILARITY SEARCH RESULTS ───────────────── */
+.similar-item{
+  display:flex;gap:10px;padding:8px;border-radius:8px;
+  cursor:pointer;transition:background .12s;margin-bottom:4px;
+}
+.similar-item:hover{background:var(--surface2)}
+.similar-thumb{
+  width:40px;height:40px;border-radius:6px;
+  border:1px solid var(--border);object-fit:cover;flex-shrink:0;
+}
+.similar-info{min-width:0}
+.similar-smiles{
+  font-family:var(--mono);font-size:10px;color:var(--text-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.similar-sim{font-size:11px;color:var(--text-3);margin-top:3px}
+
+/* ─ DATASET FILTER CHIPS (chart tab) ────────── */
+.ds-filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.ds-chip{
+  padding:3px 10px;border-radius:80px;font-size:10px;font-family:var(--mono);
+  border:1px solid var(--chip-col,#64748b);color:var(--chip-col,#64748b);
+  background:transparent;cursor:pointer;opacity:.38;transition:opacity .15s;
+}
+.ds-chip.active{
+  opacity:1;
+  background:color-mix(in srgb,var(--chip-col,#64748b) 12%,transparent);
 }
