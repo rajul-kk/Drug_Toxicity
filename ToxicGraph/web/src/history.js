@@ -1,8 +1,27 @@
-// history.js — localStorage prediction history
+// history.js — localStorage prediction history + bookmarks
 // showView and runPredict are accessed via window (set by main.js) to avoid circular imports
 
-const HISTORY_KEY = 'tg_history';
-const HISTORY_MAX = 20;
+const HISTORY_KEY  = 'tg_history';
+const BOOKMARK_KEY = 'tg_bookmarks';
+const HISTORY_MAX  = 20;
+
+export function bookmarkAdd(entry) {
+  const list = bookmarkLoad().filter(e => e.smiles !== entry.smiles);
+  list.unshift(entry);
+  localStorage.setItem(BOOKMARK_KEY, JSON.stringify(list.slice(0, 50)));
+  historyRender();
+}
+
+export function bookmarkRemove(smiles) {
+  const list = bookmarkLoad().filter(e => e.smiles !== smiles);
+  localStorage.setItem(BOOKMARK_KEY, JSON.stringify(list));
+  historyRender();
+}
+
+export function bookmarkLoad() {
+  try { return JSON.parse(localStorage.getItem(BOOKMARK_KEY) || '[]'); }
+  catch { return []; }
+}
 
 export function historyAdd(entry) {
   const list = historyLoad();
@@ -39,6 +58,29 @@ export function historyRender() {
   });
 
   const html = [];
+
+  // Bookmarks section (pinned at top)
+  const bookmarks = bookmarkLoad();
+  if (bookmarks.length) {
+    html.push(`<div class="hist-group-label bookmark-label">★ Bookmarked</div>`);
+    bookmarks.forEach(e => {
+      const probCol = e.topProb >= 0.7 ? 'var(--red)' : e.topProb >= 0.4 ? 'var(--amber)' : 'var(--text-3)';
+      const safeSmiles = e.smiles.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      html.push(`<div class="hist-item" onclick="historyOpenSmiles('${safeSmiles}')" title="${e.smiles}">
+        <img class="hist-thumb" src="/api/thumbnail/${encodeURIComponent(e.smiles)}?size=60"
+             onerror="this.style.display='none'" alt="" loading="lazy">
+        <div class="hist-info">
+          <div class="hist-smiles">${e.smiles.length>22 ? e.smiles.slice(0,22)+'…' : e.smiles}</div>
+          <div class="hist-meta">
+            <span style="font-family:var(--mono);font-size:10px;color:${probCol}">${e.topProb.toFixed(3)}</span>
+            <span class="hist-task" style="flex:1">${e.topTask||'—'}</span>
+            <button class="bookmark-remove" onclick="event.stopPropagation();bookmarkRemove('${safeSmiles}')" title="Remove">✕</button>
+          </div>
+        </div>
+      </div>`);
+    });
+  }
+
   groups.forEach((entries, key) => {
     html.push(`<div class="hist-group-label">${key === 'new' ? 'New' : key}</div>`);
     entries.forEach(e => {
@@ -69,6 +111,13 @@ export function historyOpen(i) {
   if (!entry) return;
   historyToggle();
   document.getElementById('smiles-inp').value = entry.smiles;
+  window.showView('predict', document.querySelector('#view-toggle .vt-btn'));
+  window.runPredict();
+}
+
+export function historyOpenSmiles(smiles) {
+  historyToggle();
+  document.getElementById('smiles-inp').value = smiles;
   window.showView('predict', document.querySelector('#view-toggle .vt-btn'));
   window.runPredict();
 }

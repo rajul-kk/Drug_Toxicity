@@ -7,7 +7,8 @@ import {
 } from './state.js';
 import { fetchBrowse } from './browse.js';
 import { historyRender } from './history.js';
-import { renderChart, renderTable, runPredict } from './predict.js';
+import { renderChart, renderTable, runPredict, initDsFilterChips, toggleDsFilter } from './predict.js';
+import { fetchSimilar, renderSimilarResults } from './similar.js';
 import { setActivityAvailable } from './activity.js';
 
 // ── view switching ─────────────────────────────
@@ -38,6 +39,15 @@ export function switchTaskTab(name, btn) {
   if (name === 'table' && !tableRendered) {
     renderTable();
     setTableRendered(true);
+  }
+  if (name === 'similar') {
+    const smiles = document.getElementById('smiles-inp').value.trim();
+    const el = document.getElementById('similar-results');
+    if (!smiles || !el) return;
+    el.innerHTML = '<div style="color:var(--text-3);font-size:12px;padding:8px 0">Searching…</div>';
+    fetchSimilar(smiles)
+      .then(r => renderSimilarResults(r, el))
+      .catch(() => { el.innerHTML = '<div style="color:var(--red);font-size:12px">Search failed.</div>'; });
   }
 }
 
@@ -113,9 +123,10 @@ export async function boot() {
     }
 
     const dsColArr = [];
+    APP.taskDatasets = [];
     for (const [ds, tasks] of Object.entries(info.task_groups)) {
       const col = info.dataset_colors[ds] || '#64748b';
-      tasks.forEach(() => dsColArr.push(col));
+      tasks.forEach(() => { dsColArr.push(col); APP.taskDatasets.push(ds); });
     }
     setDSColors(dsColArr);
 

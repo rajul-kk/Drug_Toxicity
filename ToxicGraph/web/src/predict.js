@@ -12,15 +12,37 @@ import { fetchAndRenderActivity } from './activity.js';
 
 // ── plotly chart ───────────────────────────────
 const CHART_TOP_N = 15;
+let _dsFilter = new Set(); // empty = all shown
+
+export function initDsFilterChips() {
+  const row = document.getElementById('ds-filter-chips');
+  if (!row || !APP.taskGroups) return;
+  const datasets = Object.keys(APP.taskGroups);
+  _dsFilter = new Set(datasets);
+  row.style.display = 'flex';
+  row.innerHTML = datasets.map(ds =>
+    `<button class="ds-chip active" data-ds="${ds}"
+       onclick="toggleDsFilter('${ds}',this)"
+       style="--chip-col:${APP.dsColors?.[ds]||'#64748b'}">${ds}</button>`
+  ).join('');
+}
+
+export function toggleDsFilter(ds, btn) {
+  if (_dsFilter.has(ds)) { _dsFilter.delete(ds); btn.classList.remove('active'); }
+  else                   { _dsFilter.add(ds);    btn.classList.add('active');    }
+  renderChart(state.isTestSet || false, state.gt || null);
+}
 
 export function renderChart(isTestSet, gt) {
   const means = state.means || [];
   const stds  = state.stds  || [];
   if (!means.length) return;
 
-  // Keep only top CHART_TOP_N tasks by probability
+  // Keep only top CHART_TOP_N tasks by probability, respecting dataset filter
   const topIdx = [...means.map((v, i) => ({v, i}))]
-    .sort((a, b) => b.v - a.v).slice(0, CHART_TOP_N).map(x => x.i)
+    .sort((a, b) => b.v - a.v)
+    .filter(({i}) => _dsFilter.size === 0 || _dsFilter.has(APP.taskDatasets?.[i]))
+    .slice(0, CHART_TOP_N).map(x => x.i)
     .sort((a, b) => a - b); // restore original order for grouping
   const topNames  = topIdx.map(i => TASK_NAMES[i]);
   const topMeans  = topIdx.map(i => means[i]);
@@ -221,6 +243,29 @@ export function updateSummaryBars(means, stds = []) {
     row.style.animationDelay = `${i * 18}ms`;
     row.classList.add('anim-fade-in');
   });
+
+  // Star/bookmark button below the bars
+  let starBtn = document.getElementById('summary-bookmark-btn');
+  if (!starBtn) {
+    starBtn = document.createElement('button');
+    starBtn.id = 'summary-bookmark-btn';
+    starBtn.className = 'bookmark-btn';
+    starBtn.onclick = bookmarkCurrent;
+    container.parentElement.appendChild(starBtn);
+  }
+  starBtn.innerHTML = '☆ Bookmark this prediction';
+  starBtn.classList.remove('bookmarked');
+}
+
+import { bookmarkAdd, bookmarkLoad } from './history.js';
+
+export function bookmarkCurrent() {
+  const smiles = document.getElementById('smiles-inp').value.trim();
+  if (!smiles || !state.means) return;
+  const topIdx = state.means.indexOf(Math.max(...state.means));
+  bookmarkAdd({ smiles, topProb: state.means[topIdx], topTask: TASK_NAMES[topIdx] || '—', isTestSet: false });
+  const btn = document.getElementById('summary-bookmark-btn');
+  if (btn) { btn.innerHTML = '★ Bookmarked'; btn.classList.add('bookmarked'); }
 }
 
 // ── atom attribution ───────────────────────────
@@ -277,6 +322,41 @@ export function exportCSV() {
   a.href     = URL.createObjectURL(blob);
   a.download = `toxicgraph_${smiles.slice(0,20).replace(/[^a-zA-Z0-9]/g,'_')}.csv`;
   a.click();
+}
+
+// ── print report ───────────────────────────────
+export function printReport() {
+  const means = state.means || [];
+  if (!means.length) return;
+  const smiles = document.getElementById('smiles-inp').value.trim();
+  const date   = new Date().toLocaleDateString();
+  const model  = (APP.models && APP.activeModel) ? APP.activeModel.toUpperCase() : 'Ensemble';
+
+  const rows = means
+    .map((v, i) => ({v, i}))
+    .sort((a, b) => b.v - a.v)
+    .map(({v, i}) => {
+      const std = state.stds?.[i];
+      return `<tr>
+        <td>${TASK_NAMES[i]||i}</td>
+        <td>${(v*100).toFixed(1)}%</td>
+        <td>${std !== undefined ? (std*100).toFixed(1)+'%' : '—'}</td>
+      </tr>`;
+    }).join('');
+
+  const el = document.getElementById('print-report');
+  el.innerHTML = `
+    <div class="pr-header">
+      <h1>ToxicGraph Toxicity Report</h1>
+      <div class="pr-meta"><strong>SMILES:</strong> ${smiles}</div>
+      <div class="pr-meta"><strong>Model:</strong> ${model} · <strong>Date:</strong> ${date}</div>
+    </div>
+    <table class="pr-table">
+      <thead><tr><th>Task</th><th>Probability</th><th>MC Std</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="pr-footer">GNN + DMPNN ensemble · MC dropout · temperature-scaled calibration · ToxicGraph</div>`;
+  window.print();
 }
 
 // ── fetch helper ───────────────────────────────
@@ -435,6 +515,9 @@ export async function runPredict() {
   }
 
   document.getElementById('tp-export-btn').style.display = '';
+  const reportBtn = document.getElementById('tp-report-btn');
+  if (reportBtn) reportBtn.style.display = '';
+  initDsFilterChips();
   syncHashToUrl(smiles);
   historyAdd({smiles, topProb: data.max_auc, topTask: data.top_task, isTestSet: false});
 

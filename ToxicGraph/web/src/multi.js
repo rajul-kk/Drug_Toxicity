@@ -1,6 +1,35 @@
 import { APP, TASK_NAMES } from './state.js';
 import { fetchPrediction } from './predict.js';
 
+export function initCsvDrop() {
+  const zone  = document.getElementById('csv-drop-zone');
+  const input = document.getElementById('csv-file-input');
+  if (!zone) return;
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) readCsvFile(e.dataTransfer.files[0]);
+  });
+  input?.addEventListener('change', () => { if (input.files[0]) readCsvFile(input.files[0]); });
+}
+
+function readCsvFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return;
+    const header = lines[0].toLowerCase().split(',');
+    const smilesCol = header.findIndex(h => h.includes('smiles') || h.includes('mol'));
+    const dataLines = lines.slice(smilesCol >= 0 ? 1 : 0);
+    const smilesList = dataLines
+      .map(l => (smilesCol >= 0 ? l.split(',')[smilesCol] : l.split(',')[0] || '').trim().replace(/^"|"$/g,''))
+      .filter(Boolean);
+    document.getElementById('batch-inp').value = smilesList.join('\n');
+  };
+  reader.readAsText(file);
+}
+
 export async function runBatch() {
   const raw = (document.getElementById('batch-inp')?.value || '').trim();
   if (!raw) return;

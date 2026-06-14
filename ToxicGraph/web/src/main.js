@@ -3,10 +3,11 @@
 
 import './particles.js';
 import { init3dViewer }    from './viewer.js';
-import { runPredict, exportCSV, showTaskPopover, explainTopTask, closeAttr } from './predict.js';
+import { runPredict, exportCSV, printReport, showTaskPopover, explainTopTask, closeAttr, toggleDsFilter, bookmarkCurrent } from './predict.js';
 import { fetchBrowse, setFilter, sortTable, openFromBrowse, onSearchInput } from './browse.js';
-import { historyToggle, historyOpen } from './history.js';
-import { runBatch }        from './multi.js';
+import { historyToggle, historyOpen, historyOpenSmiles, bookmarkRemove } from './history.js';
+import { runBatch, initCsvDrop } from './multi.js';
+import { fetchSimilar, renderSimilarResults } from './similar.js';
 import {
   showView, switchTaskTab, copySmiles, toggleMissingLabels, setModel, toggleTheme, boot,
 } from './app.js';
@@ -16,11 +17,11 @@ Object.assign(window, {
   // navigation & UI
   showView, switchTaskTab, copySmiles, toggleMissingLabels, setModel, toggleTheme,
   // predict view
-  runPredict, exportCSV, showTaskPopover, explainTopTask, closeAttr,
+  runPredict, exportCSV, printReport, showTaskPopover, explainTopTask, closeAttr, toggleDsFilter, bookmarkCurrent,
   // browse view
   setFilter, sortTable, openFromBrowse, onSearchInput,
-  // history
-  historyToggle, historyOpen,
+  // history + bookmarks
+  historyToggle, historyOpen, historyOpenSmiles, bookmarkRemove,
   // batch
   runBatch,
   // 3D viewer (used by boot() for hero molecule)
@@ -28,3 +29,10 @@ Object.assign(window, {
 });
 
 boot();
+initCsvDrop();
+
+window.runPredictSmiles = smiles => {
+  document.getElementById('smiles-inp').value = smiles;
+  window.showView('predict', document.querySelector('#view-toggle .vt-btn'));
+  window.runPredict();
+};
