@@ -1,4 +1,6 @@
 
+from functools import lru_cache
+
 from rdkit import Chem
 from rdkit.Chem import Draw, AllChem
 import matplotlib.pyplot as plt
@@ -18,6 +20,22 @@ _CPK_COLORS = {
     53: '#940094',  # I
 }
 _ATOM_SIZE = {1: 80, 6: 180, 7: 160, 8: 150, 9: 130, 15: 220, 16: 220, 17: 200, 35: 240, 53: 260}
+
+
+@lru_cache(maxsize=512)
+def smiles_to_sdf(smiles: str) -> str | None:
+    """Return an SDF/molblock string for 3Dmol.js; None if embedding fails."""
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return None
+    mol = Chem.AddHs(mol)
+    if AllChem.EmbedMolecule(mol, AllChem.ETKDGv3()) != 0:
+        return None
+    try:
+        AllChem.MMFFOptimizeMolecule(mol, maxIters=500)
+    except Exception:
+        pass
+    return Chem.MolToMolBlock(mol)
 
 
 def visualize_molecule(smiles, save_path=None):
