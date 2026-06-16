@@ -1,6 +1,8 @@
 import io
 import json
+import logging
 import os
+import time
 import yaml
 import torch
 import numpy as np
@@ -10,6 +12,13 @@ from typing import Optional
 
 from dotenv import load_dotenv
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"time":"%(asctime)s","level":"%(levelname)s","msg":%(message)s}',
+    datefmt='%Y-%m-%dT%H:%M:%S',
+)
+log = logging.getLogger('toxicgraph')
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -90,15 +99,14 @@ def _load_available_ensembles(config, device):
             labels      = np.load(_cp('test_labels.npy'))
             smiles_list = json.load(open(_cp('test_smiles.json')))
             source_list = json.load(open(_cp('test_sources.json')))
-            print(f'  {arch}: loaded precomputed cache ({len(smiles_list)} molecules)')
+            log.info(f'"{arch}: loaded precomputed cache ({len(smiles_list)} molecules)"')
         else:
             test_dataset, _ = load_test_dataset(config)
             probs, labels = collect_predictions(ens, test_dataset, device, temperature)
             smiles_list = test_dataset.smiles_list
             source_list = test_dataset.source_list if hasattr(test_dataset, 'source_list') \
                           else [config['dataset'].get('names', ['unknown'])[0]] * len(smiles_list)
-            print(f'  {arch}: ran batch inference ({len(smiles_list)} molecules)'
-                  f' — run precompute_cache.py to speed up future startups')
+            log.info(f'"{arch}: ran batch inference ({len(smiles_list)} molecules) — run precompute_cache.py to speed up future startups"')
         n_tasks = probs.shape[1]
         scores = []
         for mol_idx in range(len(smiles_list)):
@@ -164,10 +172,10 @@ async def lifespan(app: FastAPI):
     _act_path = os.path.join('checkpoints', 'activity', 'activity_rf.pkl')
     if os.path.exists(_act_path):
         activity_model = ActivityModel.load(_act_path)
-        print(f'  activity: loaded RF model ({_act_path})')
+        log.info(f'"activity: loaded RF model ({_act_path})"')
     else:
         activity_model = None
-        print('  activity: no model found — run python train_activity.py')
+        log.warning('"activity: no model found — run python train_activity.py"')
 
     app.state.ensembles      = ensembles
     app.state.test_caches    = test_caches
@@ -218,6 +226,22 @@ app.add_middleware(
 app.mount('/static', StaticFiles(directory='web/static'), name='static')
 templates = Jinja2Templates(directory='web/templates')
 
+
+MAX_SMILES_LEN = 500
+_predict_cache: dict = {}   # (canonical_smiles, model_key, n_mc) -> result dict
+_CACHE_MAX = 256
+
+def _check_smiles(smiles: str):
+    if not smiles or len(smiles) > MAX_SMILES_LEN:
+        raise HTTPException(422, f'SMILES must be 1–{MAX_SMILES_LEN} characters')
+    from rdkit import Chem as _Chem
+    if _Chem.MolFromSmiles(smiles) is None:
+        raise HTTPException(422, 'Invalid SMILES')
+
+def _canonical(smiles: str) -> str:
+    from rdkit import Chem as _Chem
+    mol = _Chem.MolFromSmiles(smiles)
+    return _Chem.MolToSmiles(mol) if mol else smiles
 
 # ── health ────────────────────────────────────────────────────────────────────
 
@@ -281,6 +305,7 @@ def api_info(request: Request):
 @limiter.limit('30/minute')
 def api_activity(smiles: str, request: Request):
     """RF fingerprint predictions for BBBP (BBB permeability) and HIV antiviral activity."""
+    _check_smiles(smiles)
     s = request.app.state
     if s.activity_model is None:
         raise HTTPException(503, 'Activity model not loaded — run python train_activity.py')
@@ -306,10 +331,17 @@ class PredictRequest(BaseModel):
 @limiter.limit('20/minute')
 def api_predict(req: PredictRequest, request: Request):
     import concurrent.futures
+    _check_smiles(req.smiles)
     s = request.app.state
     model_key = req.model or s.default_model
     if model_key not in s.ensembles:
         model_key = next(iter(s.ensembles))
+
+    # Cache lookup (canonical SMILES so CC(O) and OC(C) hit the same entry)
+    canon = _canonical(req.smiles)
+    cache_key = (canon, model_key, req.n_mc)
+    if cache_key in _predict_cache:
+        return _predict_cache[cache_key]
 
     ensemble    = s.ensembles[model_key]
     temperature = s.test_caches[model_key]['temperature']
@@ -321,9 +353,9 @@ def api_predict(req: PredictRequest, request: Request):
         fp_model=s.fp_models.get(model_key),
     )
     try:
-        means_list, stds_list, _ = future.result(timeout=60)
+        means_list, stds_list, _ = future.result(timeout=30)
     except concurrent.futures.TimeoutError:
-        raise HTTPException(503, 'Prediction timed out')
+        raise HTTPException(503, 'Prediction timed out after 30 s')
 
     if means_list[0] is None:
         raise HTTPException(422, 'Invalid SMILES — RDKit could not parse it')
@@ -333,7 +365,7 @@ def api_predict(req: PredictRequest, request: Request):
     sdf   = smiles_to_sdf(req.smiles) or ''
 
     top_idx = int(max(range(len(means)), key=lambda i: means[i]))
-    return {
+    result = {
         'means':        means,
         'stds':         stds,
         'sdf':          sdf,
@@ -344,6 +376,12 @@ def api_predict(req: PredictRequest, request: Request):
         'mc_std_mean':  float(sum(stds) / len(stds)),
         'top_task':     s.task_names[top_idx],
     }
+    top_task = result['top_task']
+    log.info(f'"predict smiles_len={len(req.smiles)} model={model_key} top={top_task}"')
+    if len(_predict_cache) >= _CACHE_MAX:
+        _predict_cache.pop(next(iter(_predict_cache)))
+    _predict_cache[cache_key] = result
+    return result
 
 
 # ── /api/testset ──────────────────────────────────────────────────────────────
@@ -409,6 +447,7 @@ def api_testset_single(idx: int, request: Request, model: Optional[str] = None):
 @app.get('/api/explain')
 @limiter.limit('10/minute')
 def api_explain(smiles: str, request: Request, task: int = 0, model: Optional[str] = None):
+    _check_smiles(smiles)
     from explain import get_atom_importance_svg
     s = request.app.state
     model_key = model or s.default_model
@@ -426,6 +465,7 @@ def api_explain(smiles: str, request: Request, task: int = 0, model: Optional[st
 @app.get('/api/similar')
 @limiter.limit('30/minute')
 def api_similar(smiles: str, request: Request, n: int = 8):
+    _check_smiles(smiles)
     from rdkit import Chem as _Chem
     mol = _Chem.MolFromSmiles(smiles)
     if mol is None:

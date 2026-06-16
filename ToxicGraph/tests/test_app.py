@@ -156,3 +156,83 @@ def test_search_no_match_returns_empty(client):
     data = r.json()
     assert data['total'] == 0
     assert data['rows'] == []
+
+
+# ── new endpoint tests ────────────────────────────────────────────────────────
+
+def test_similar_returns_list(client):
+    r = client.get('/api/similar?smiles=CCO&n=2')
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    assert len(data) <= 2
+    for item in data:
+        assert 'smiles' in item and 'tanimoto' in item
+        assert 0.0 <= item['tanimoto'] <= 1.0
+
+
+def test_similar_invalid_smiles_returns_422(client):
+    r = client.get('/api/similar?smiles=%%%bad%%%')
+    assert r.status_code == 422
+
+
+def test_similar_too_long_smiles_returns_422(client):
+    r = client.get(f'/api/similar?smiles={"C" * 501}')
+    assert r.status_code == 422
+
+
+def test_predict_too_long_smiles_returns_422(client):
+    r = client.post('/api/predict', json={'smiles': 'C' * 501, 'n_mc': 1})
+    assert r.status_code == 422
+
+
+def test_predict_cache_hit_skips_model(client):
+    """Second identical request must return without calling _predict again."""
+    import app as app_module
+    app_module._predict_cache.clear()
+    with patch('app._predict') as mock_pred, patch('app.smiles_to_sdf', return_value='SDF'):
+        mock_pred.return_value = ([np.array([0.5] * 49)], [np.array([0.05] * 49)], None)
+        client.post('/api/predict', json={'smiles': 'CCCCO', 'n_mc': 5})
+        client.post('/api/predict', json={'smiles': 'CCCCO', 'n_mc': 5})
+        assert mock_pred.call_count == 1  # second call served from cache
+
+
+def test_explain_invalid_smiles_returns_422(client):
+    r = client.get('/api/explain?smiles=%%%bad%%%&task=0')
+    assert r.status_code == 422
+
+
+# ── ML regression tests ───────────────────────────────────────────────────────
+
+def test_predict_output_shape_matches_tasks(client):
+    """means and stds must have exactly as many entries as task_names."""
+    with patch('app._predict') as mock_pred, patch('app.smiles_to_sdf', return_value='SDF'):
+        n = 49
+        mock_pred.return_value = ([np.array([0.5] * n)], [np.array([0.05] * n)], None)
+        r = client.post('/api/predict', json={'smiles': 'c1ccccc1', 'n_mc': 5})
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data['means']) == len(data['task_names'])
+    assert len(data['stds'])  == len(data['task_names'])
+
+
+def test_predict_probabilities_in_unit_interval(client):
+    """All output probabilities must be in [0, 1]."""
+    with patch('app._predict') as mock_pred, patch('app.smiles_to_sdf', return_value='SDF'):
+        mock_pred.return_value = ([np.array([0.1, 0.99, 0.0, 1.0] * 10 + [0.5])],
+                                  [np.array([0.01] * 41)], None)
+        r = client.post('/api/predict', json={'smiles': 'c1ccccc1', 'n_mc': 5})
+    data = r.json()
+    assert all(0.0 <= p <= 1.0 for p in data['means']), 'probability out of [0,1]'
+    assert all(s >= 0.0 for s in data['stds']), 'std must be non-negative'
+
+
+def test_predict_no_nan_in_output(client):
+    """NaN in model output must not propagate to the response."""
+    import math
+    with patch('app._predict') as mock_pred, patch('app.smiles_to_sdf', return_value='SDF'):
+        mock_pred.return_value = ([np.array([0.5] * 41)], [np.array([0.05] * 41)], None)
+        r = client.post('/api/predict', json={'smiles': 'CCO', 'n_mc': 5})
+    data = r.json()
+    assert all(not math.isnan(p) for p in data['means'])
+    assert all(not math.isnan(s) for s in data['stds'])
