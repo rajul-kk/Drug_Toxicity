@@ -37,6 +37,9 @@ COPY web/ ./web/
 # checkpoints/ and data/ are mounted at runtime via docker-compose volumes.
 # Run precompute_cache.py once after mounting weights to warm the inference cache.
 
+RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
+USER appuser
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
