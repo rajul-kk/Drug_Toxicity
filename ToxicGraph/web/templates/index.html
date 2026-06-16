@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="/static/landing.css?v=3">
 <link rel="stylesheet" href="/static/app.css?v=8">
 <link rel="stylesheet" href="/static/components.css?v=5">
-<script type="module" src="/static/dist/bundle.js?v=7"></script>
+<script type="module" src="/static/dist/bundle.js?v=8"></script>
 </head>
 <body class="landing-mode">
 
@@ -23,12 +23,12 @@
     <div class="wordmark-dot"></div>ToxicGraph
   </div>
   <div class="query-bar" id="nav-query-bar" style="display:none">
-    <input type="text" id="smiles-inp" placeholder="Paste SMILES — CC(=O)Nc1ccc(O)cc1"
+    <input type="text" id="smiles-inp" placeholder="Paste SMILES â€” CC(=O)Nc1ccc(O)cc1"
            onkeydown="if(event.key==='Enter') runPredict()">
-    <button class="query-btn" onclick="runPredict()">Predict →</button>
+    <button class="query-btn" onclick="runPredict()">Predict â†’</button>
   </div>
   <div id="model-toggle" class="nav-view-toggle" style="display:none"></div>
-  <button id="theme-btn" class="theme-btn" onclick="toggleTheme()" title="Toggle dark mode">☀</button>
+  <button id="theme-btn" class="theme-btn" onclick="toggleTheme()" title="Toggle dark mode">â˜€</button>
   <div id="view-toggle" class="nav-view-toggle">
     <button class="vt-btn" onclick="showView('predict',this)">Predict</button>
     <button class="vt-btn" onclick="showView('browse',this)">Browse</button>
@@ -39,27 +39,27 @@
 <div id="history-panel" class="hist-panel hidden">
   <div class="hist-header">
     <span>Recent predictions</span>
-    <button onclick="historyToggle()">✕</button>
+    <button onclick="historyToggle()">âœ•</button>
   </div>
   <div id="history-list"></div>
 </div>
 <button id="hist-toggle-btn" class="hist-toggle-btn" onclick="historyToggle()">History</button>
 
-<!-- VIEW 0: LANDING ──────────────────────────────── -->
+<!-- VIEW 0: LANDING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
 <div class="view active" id="view-home">
   <section class="hero">
     <div class="hero-text">
-      <div class="eyebrow" id="hero-eyebrow">GNN + DMPNN Ensemble · 3 datasets · 41 tasks</div>
+      <div class="eyebrow" id="hero-eyebrow">GNN + DMPNN Ensemble Â· 3 datasets Â· 41 tasks</div>
       <h1>Predicting<br><em>molecular harm</em><br>at atomic scale.</h1>
-      <p>GNN and DMPNN neural networks trained on nuclear receptor activity, clinical trial toxicity, and drug side-effect profiles — combined in a calibrated ensemble with MC dropout uncertainty.</p>
+      <p>GNN and DMPNN neural networks trained on nuclear receptor activity, clinical trial toxicity, and drug side-effect profiles â€” combined in a calibrated ensemble with MC dropout uncertainty.</p>
       <div class="hero-stats" id="hero-stats">
-        <div class="hs-item"><div class="hs-num g" id="hs-tasks">—</div><div class="hs-label">Tasks</div></div>
-        <div class="hs-item"><div class="hs-num p" id="hs-datasets">—</div><div class="hs-label">Datasets</div></div>
-        <div class="hs-item"><div class="hs-num b" id="hs-models">—</div><div class="hs-label">Models</div></div>
+        <div class="hs-item"><div class="hs-num g" id="hs-tasks">â€”</div><div class="hs-label">Tasks</div></div>
+        <div class="hs-item"><div class="hs-num p" id="hs-datasets">â€”</div><div class="hs-label">Datasets</div></div>
+        <div class="hs-item"><div class="hs-num b" id="hs-models">â€”</div><div class="hs-label">Models</div></div>
       </div>
       <div style="display:flex;gap:12px;margin-top:28px;flex-wrap:wrap">
         <button class="hero-cta" onclick="showView('predict', document.querySelector('#view-toggle .vt-btn'))">
-          Start predicting →
+          Start predicting â†’
         </button>
         <button class="hero-cta secondary" onclick="showView('browse', document.querySelectorAll('#view-toggle .vt-btn')[1])">
           Browse test set
@@ -74,11 +74,11 @@
           <div class="hmp-dot" style="background:#fbbf24"></div>
           <div class="hmp-dot" style="background:#34d399"></div>
         </div>
-        <div class="hmp-label">Live 3D · paracetamol</div>
+        <div class="hmp-label">Live 3D Â· paracetamol</div>
       </div>
       <div class="hmp-viewer">
         <div id="hero3d" style="width:100%;height:100%"></div>
-        <div class="loader" id="hero-loader"><div class="loader-ring"></div>loading 3D…</div>
+        <div class="loader" id="hero-loader"><div class="loader-ring"></div>loading 3Dâ€¦</div>
       </div>
       <div class="hmp-footer">
         <div class="hmp-smiles" id="hero-smiles" onclick="copySmiles(this)" title="Click to copy">CC(=O)Nc1ccc(O)cc1</div>
@@ -108,13 +108,13 @@
         <div class="loader" id="predict-loader" style="display:none"></div>
         <div id="mol-placeholder" style="position:absolute;inset:0;display:flex;flex-direction:column;
              align-items:center;justify-content:center;gap:10px;pointer-events:none">
-          <div style="font-size:28px;opacity:.18">⬡</div>
-          <div style="font-size:12px;color:var(--text-3);font-family:var(--sans)">Paste a SMILES above and click Predict →</div>
+          <div style="font-size:28px;opacity:.18">â¬¡</div>
+          <div style="font-size:12px;color:var(--text-3);font-family:var(--sans)">Paste a SMILES above and click Predict â†’</div>
         </div>
       </div>
       <div class="mol-footer">
         <div class="mol-smiles" id="mol-smiles-display" onclick="copySmiles(this)" title="Click to copy SMILES"></div>
-        <div class="mol-sub" id="mol-name-display">Enter a SMILES above and click Predict →</div>
+        <div class="mol-sub" id="mol-name-display">Enter a SMILES above and click Predict â†’</div>
       </div>
     </div>
 
@@ -124,15 +124,15 @@
       <!-- 3 headline metrics -->
       <div class="metric-strip">
         <div class="metric-chip g">
-          <div class="mc-val g" id="chip-max-auc">—</div>
+          <div class="mc-val g" id="chip-max-auc">â€”</div>
           <div class="mc-lbl" id="chip-max-auc-lbl">Top Prob</div>
         </div>
         <div class="metric-chip p">
-          <div class="mc-val p" id="chip-mc-std">—</div>
+          <div class="mc-val p" id="chip-mc-std">â€”</div>
           <div class="mc-lbl">MC Std</div>
         </div>
         <div class="metric-chip b">
-          <div class="mc-val b" id="chip-top-task" style="font-size:18px">—</div>
+          <div class="mc-val b" id="chip-top-task" style="font-size:18px">â€”</div>
           <div class="mc-lbl">Top task</div>
         </div>
       </div>
@@ -145,11 +145,11 @@
         <div class="tp-tabs">
           <div class="tp-tab active" onclick="switchTaskTab('summary',this)">Summary</div>
           <div class="tp-tab" onclick="switchTaskTab('chart',this)">Chart</div>
-          <div class="tp-tab" onclick="switchTaskTab('table',this)">Table ↕</div>
+          <div class="tp-tab" onclick="switchTaskTab('table',this)">Table â†•</div>
           <div class="tp-tab" onclick="switchTaskTab('batch',this)">Batch</div>
           <div class="tp-tab" onclick="switchTaskTab('similar',this)">Similar</div>
-          <button class="tp-export-btn" id="tp-export-btn" onclick="exportCSV()" title="Download as CSV" style="display:none">↓ CSV</button>
-          <button class="tp-export-btn" id="tp-report-btn" onclick="printReport()" title="Print / save as PDF" style="display:none">⎙ Report</button>
+          <button class="tp-export-btn" id="tp-export-btn" onclick="exportCSV()" title="Download as CSV" style="display:none">â†“ CSV</button>
+          <button class="tp-export-btn" id="tp-report-btn" onclick="printReport()" title="Print / save as PDF" style="display:none">âŽ™ Report</button>
         </div>
 
         <!-- SUMMARY TAB -->
@@ -159,21 +159,21 @@
           </div>
           <div class="unc-note">
             <div class="unc-icon"></div>
-            MC dropout · 20 forward passes · bars show mean · switch to "Chart" for error bars
+            MC dropout Â· 20 forward passes Â· bars show mean Â· switch to "Chart" for error bars
           </div>
           <div class="expand-hint" onclick="switchTaskTab('chart', document.querySelectorAll('.tp-tab')[1])">
-            Show all tasks with uncertainty <span>→</span>
+            Show all tasks with uncertainty <span>â†’</span>
           </div>
           <button id="explain-btn" class="explain-btn" onclick="explainTopTask()" style="display:none">
-            Explain top task →
+            Explain top task â†’
           </button>
           <div id="attr-panel" class="attr-panel" style="display:none">
             <div class="attr-header">
-              <span>Atom importance · <span id="attr-task-name">—</span></span>
-              <button onclick="closeAttr()" class="attr-close">✕</button>
+              <span>Atom importance Â· <span id="attr-task-name">â€”</span></span>
+              <button onclick="closeAttr()" class="attr-close">âœ•</button>
             </div>
             <div id="attr-svg-container"></div>
-            <div class="attr-note">Gradient saliency · green = high importance</div>
+            <div class="attr-note">Gradient saliency Â· green = high importance</div>
           </div>
         </div>
 
@@ -181,9 +181,9 @@
         <div class="tp-body hidden" id="tp-chart">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
             <div class="gt-legend" id="gt-legend" style="display:none">
-              <div class="gt-item"><span class="gt-sym" style="color:var(--red)">◆</span> GT positive</div>
-              <div class="gt-item"><span class="gt-sym" style="color:var(--text-3)">●</span> GT negative</div>
-              <div class="gt-item"><span style="font-size:11px;color:var(--text-3)">⊣⊢</span> MC uncertainty</div>
+              <div class="gt-item"><span class="gt-sym" style="color:var(--red)">â—†</span> GT positive</div>
+              <div class="gt-item"><span class="gt-sym" style="color:var(--text-3)">â—</span> GT negative</div>
+              <div class="gt-item"><span style="font-size:11px;color:var(--text-3)">âŠ£âŠ¢</span> MC uncertainty</div>
             </div>
             <label class="missing-toggle" id="missing-toggle-wrap" style="display:none">
               <input type="checkbox" id="show-missing-cb" onchange="toggleMissingLabels()">
@@ -192,7 +192,7 @@
           </div>
           <div class="unc-note" id="new-mol-note" style="margin-bottom:8px">
             <div class="unc-icon"></div>
-            New molecule — no ground truth available. Error bars = MC dropout std.
+            New molecule â€” no ground truth available. Error bars = MC dropout std.
           </div>
           <div id="ds-filter-chips" class="ds-filter-row" style="display:none"></div>
           <div id="task-chart" style="width:100%;height:360px"></div>
@@ -211,11 +211,11 @@
             Paste multiple SMILES (one per line) to compare toxicity profiles side-by-side.
           </div>
           <div id="csv-drop-zone" class="csv-drop-zone">
-            Drop a CSV file here, or <label class="csv-pick-label">browse<input type="file" id="csv-file-input" accept=".csv" style="display:none"></label> — uses the first <code>smiles</code> column (or column 0)
+            Drop a CSV file here, or <label class="csv-pick-label">browse<input type="file" id="csv-file-input" accept=".csv" style="display:none"></label> â€” uses the first <code>smiles</code> column (or column 0)
           </div>
           <textarea id="batch-inp" class="batch-textarea"
                     placeholder="CC(=O)Nc1ccc(O)cc1&#10;CCO&#10;c1ccccc1" rows="4"></textarea>
-          <button class="batch-run-btn" onclick="runBatch()">Run all →</button>
+          <button class="batch-run-btn" onclick="runBatch()">Run all â†’</button>
           <div id="batch-results"></div>
         </div>
 
@@ -228,14 +228,14 @@
         </div>
       </div>
 
-      <!-- Activity profiling card — RF model for BBBP + HIV -->
+      <!-- Activity profiling card â€” RF model for BBBP + HIV -->
       <div class="activity-card" id="activity-card" style="display:none">
         <div class="act-header">
           <div class="act-header-left">
             <span class="act-model-type">Random Forest</span>
-            <span class="act-title">ADMET · Activity Profiling</span>
+            <span class="act-title">ADMET Â· Activity Profiling</span>
           </div>
-          <span class="act-model-badge rf">RF · Morgan+MACCS</span>
+          <span class="act-model-badge rf">RF Â· Morgan+MACCS</span>
         </div>
         <div class="act-body">
 
@@ -244,10 +244,10 @@
               <span class="act-ep-name">BBB Permeability</span>
               <span class="act-ep-status" id="act-bbbp-status"></span>
             </div>
-            <div class="act-ep-desc">Blood-brain barrier penetration · Martins et al. 2012</div>
+            <div class="act-ep-desc">Blood-brain barrier penetration Â· Martins et al. 2012</div>
             <div class="act-ep-row">
               <div class="act-track"><div class="act-fill" id="act-bbbp-fill" style="width:0%"></div></div>
-              <span class="act-prob" id="act-bbbp-prob">—</span>
+              <span class="act-prob" id="act-bbbp-prob">â€”</span>
             </div>
           </div>
 
@@ -256,15 +256,15 @@
               <span class="act-ep-name">HIV Antiviral Activity</span>
               <span class="act-ep-status" id="act-hiv-status"></span>
             </div>
-            <div class="act-ep-desc">HIV replication inhibition · Wu et al. 2018</div>
+            <div class="act-ep-desc">HIV replication inhibition Â· Wu et al. 2018</div>
             <div class="act-ep-row">
               <div class="act-track"><div class="act-fill" id="act-hiv-fill" style="width:0%"></div></div>
-              <span class="act-prob" id="act-hiv-prob">—</span>
+              <span class="act-prob" id="act-hiv-prob">â€”</span>
             </div>
           </div>
 
         </div>
-        <div class="act-note">Morgan(512) + MACCS(167) fingerprints · 300-tree RandomForest per task</div>
+        <div class="act-note">Morgan(512) + MACCS(167) fingerprints Â· 300-tree RandomForest per task</div>
       </div>
 
     </div>
@@ -278,7 +278,7 @@
     <div class="browse-header">
       <div>
         <div class="browse-title">Test set</div>
-        <div class="browse-sub" id="browse-sub">Loading…</div>
+        <div class="browse-sub" id="browse-sub">Loadingâ€¦</div>
       </div>
     </div>
 
@@ -287,11 +287,11 @@
         <!-- built by boot() -->
       </div>
       <input type="text" id="smarts-inp" class="smarts-search"
-             placeholder="SMARTS filter — e.g. c1ccccc1"
+             placeholder="SMARTS filter â€” e.g. c1ccccc1"
              oninput="onSearchInput(this.value)">
       <select class="sort-select" onchange="sortTable(this.value)">
-        <option value="conf">Sort: max confidence ↓</option>
-        <option value="score">Sort: score ↓</option>
+        <option value="conf">Sort: max confidence â†“</option>
+        <option value="score">Sort: score â†“</option>
       </select>
     </div>
 
@@ -311,7 +311,7 @@
     </table>
 
     <div class="pagination">
-      <div class="page-info" id="page-info">—</div>
+      <div class="page-info" id="page-info">â€”</div>
       <div class="page-btns" id="page-btns"></div>
     </div>
   </div>

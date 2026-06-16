@@ -28,6 +28,13 @@ Object.assign(window, {
   init3dViewer,
 });
 
+window.addEventListener('unhandledrejection', e => {
+  console.error('[ToxicGraph] Unhandled rejection:', e.reason);
+});
+window.addEventListener('error', e => {
+  console.error('[ToxicGraph] Uncaught error:', e.message, e.filename, e.lineno);
+});
+
 boot();
 initCsvDrop();
 

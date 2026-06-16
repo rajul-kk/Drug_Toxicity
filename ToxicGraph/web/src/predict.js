@@ -7,18 +7,18 @@ import {
   syncHashToUrl,
 } from './state.js';
 import { init3dViewer } from './viewer.js';
-import { historyAdd } from './history.js';
+import { historyAdd, bookmarkAdd } from './history.js';
 import { fetchAndRenderActivity } from './activity.js';
 
 // ── plotly chart ───────────────────────────────
 const CHART_TOP_N = 15;
-let _dsFilter = new Set(); // empty = all shown
+let _dsFilter = null; // null = all shown; Set = specific datasets
 
 export function initDsFilterChips() {
   const row = document.getElementById('ds-filter-chips');
   if (!row || !APP.taskGroups) return;
+  _dsFilter = null; // reset to "all" each time a new prediction runs
   const datasets = Object.keys(APP.taskGroups);
-  _dsFilter = new Set(datasets);
   row.style.display = 'flex';
   row.innerHTML = datasets.map(ds =>
     `<button class="ds-chip active" data-ds="${ds}"
@@ -28,6 +28,10 @@ export function initDsFilterChips() {
 }
 
 export function toggleDsFilter(ds, btn) {
+  // Initialise from "all" on first toggle
+  if (_dsFilter === null) {
+    _dsFilter = new Set(Object.keys(APP.taskGroups || {}));
+  }
   if (_dsFilter.has(ds)) { _dsFilter.delete(ds); btn.classList.remove('active'); }
   else                   { _dsFilter.add(ds);    btn.classList.add('active');    }
   renderChart(state.isTestSet || false, state.gt || null);
@@ -41,7 +45,7 @@ export function renderChart(isTestSet, gt) {
   // Keep only top CHART_TOP_N tasks by probability, respecting dataset filter
   const topIdx = [...means.map((v, i) => ({v, i}))]
     .sort((a, b) => b.v - a.v)
-    .filter(({i}) => _dsFilter.size === 0 || _dsFilter.has(APP.taskDatasets?.[i]))
+    .filter(({i}) => _dsFilter === null || _dsFilter.has(APP.taskDatasets?.[i]))
     .slice(0, CHART_TOP_N).map(x => x.i)
     .sort((a, b) => a - b); // restore original order for grouping
   const topNames  = topIdx.map(i => TASK_NAMES[i]);
@@ -256,8 +260,6 @@ export function updateSummaryBars(means, stds = []) {
   starBtn.innerHTML = '☆ Bookmark this prediction';
   starBtn.classList.remove('bookmarked');
 }
-
-import { bookmarkAdd, bookmarkLoad } from './history.js';
 
 export function bookmarkCurrent() {
   const smiles = document.getElementById('smiles-inp').value.trim();
