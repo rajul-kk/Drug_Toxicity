@@ -1,5 +1,6 @@
 // Activity view — RF fingerprint predictions for BBBP and HIV.
 // Renders both the mini-card in the predict view and the full dedicated activity page.
+import Plotly from 'plotly.js-dist-min';
 
 let _activityAvailable = false;
 
@@ -126,7 +127,7 @@ function _renderActivityPage(smiles, data, container) {
         <div class="act-page-uncertainty">
           <span class="act-page-unc-label">Tree uncertainty</span>
           <div class="act-page-unc-bar-wrap">
-            <div class="act-page-unc-bar" style="width:${Math.min(std * 400, 100)}%;background:${color}55"></div>
+            <div class="act-page-unc-bar" style="width:${Math.min(std * 200, 100)}%;background:${color}55"></div>
           </div>
           <span class="act-page-unc-val" style="color:${color}">\xB1${std.toFixed(3)}</span>
         </div>
@@ -148,14 +149,14 @@ function _renderActivityPage(smiles, data, container) {
     <div class="act-page-meta">Morgan(512) + MACCS(167) \xB7 300-tree RandomForest per task \xB7 uncertainty = std of individual tree votes</div>
   `;
 
-  if (window.Plotly) {
+  {
     const tasks  = data.tasks;
     const probs  = tasks.map(t => { const e = data.predictions[t.key]; return typeof e === 'object' ? e.prob : e; });
     const stds   = tasks.map(t => { const e = data.predictions[t.key]; return typeof e === 'object' ? e.std  : 0; });
     const colors = tasks.map(t => t.color);
     const labels = tasks.map(t => t.label);
 
-    window.Plotly.newPlot(chartId, [{
+    Plotly.newPlot(chartId, [{
       type: 'bar',
       x: labels,
       y: probs,
