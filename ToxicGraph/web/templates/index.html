@@ -8,9 +8,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css?v=7">
 <link rel="stylesheet" href="/static/landing.css?v=3">
-<link rel="stylesheet" href="/static/app.css?v=8">
+<link rel="stylesheet" href="/static/app.css?v=9">
 <link rel="stylesheet" href="/static/components.css?v=5">
-<script type="module" src="/static/dist/bundle.js?v=8"></script>
+<script type="module" src="/static/dist/bundle.js?v=9"></script>
 </head>
 <body class="landing-mode">
 
@@ -32,6 +32,7 @@
   <div id="view-toggle" class="nav-view-toggle">
     <button class="vt-btn" onclick="showView('predict',this)">Predict</button>
     <button class="vt-btn" onclick="showView('browse',this)">Browse</button>
+    <button class="vt-btn" onclick="showView('activity',this)">Activity</button>
   </div>
 </nav>
 
@@ -317,6 +318,30 @@
   </div>
 </div><!-- /view-browse -->
 
+
+<!-- VIEW 4: ACTIVITY (RF fingerprint model) -->
+<div class="view" id="view-activity">
+  <div class="act-page-layout">
+    <div class="act-page-header">
+      <div>
+        <div class="act-page-title">Activity Profiling</div>
+        <div class="act-page-subtitle">Random Forest · Morgan(512) + MACCS(167) fingerprints · BBBP &amp; HIV</div>
+      </div>
+      <span class="act-model-badge rf" style="align-self:center">RF · Morgan+MACCS</span>
+    </div>
+
+    <div class="act-page-input-row" id="act-query-bar">
+      <input type="text" id="act-smiles-inp" class="act-page-smiles-input"
+             placeholder="Paste SMILES — CC(=O)Nc1ccc(O)cc1"
+             onkeydown="if(event.key==='Enter') runActivityPredict()">
+      <button class="act-page-predict-btn" onclick="runActivityPredict()">Predict →</button>
+    </div>
+
+    <div id="act-results">
+      <div class="act-page-empty">Paste a SMILES above and click Predict →</div>
+    </div>
+  </div>
+</div><!-- /view-activity -->
 
 
 <div id="print-report"></div>

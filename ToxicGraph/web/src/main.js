@@ -8,6 +8,7 @@ import { fetchBrowse, setFilter, sortTable, openFromBrowse, onSearchInput } from
 import { historyToggle, historyOpen, historyOpenSmiles, bookmarkRemove } from './history.js';
 import { runBatch, initCsvDrop } from './multi.js';
 import { fetchSimilar, renderSimilarResults } from './similar.js';
+import { runActivityPredict, prefillActivitySmiles } from './activity.js';
 import {
   showView, switchTaskTab, copySmiles, toggleMissingLabels, setModel, toggleTheme, boot,
 } from './app.js';
@@ -24,6 +25,8 @@ Object.assign(window, {
   historyToggle, historyOpen, historyOpenSmiles, bookmarkRemove,
   // batch
   runBatch,
+  // activity page
+  runActivityPredict, prefillActivitySmiles,
   // 3D viewer (used by boot() for hero molecule)
   init3dViewer,
 });

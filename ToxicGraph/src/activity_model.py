@@ -40,14 +40,17 @@ class ActivityModel:
 
     def predict(self, smiles: str) -> dict | None:
         """
-        Returns {task_key: probability} for each activity task, or None if
-        the SMILES is invalid.
+        Returns {task_key: {prob, std}} for each activity task, or None if invalid.
+        std is the standard deviation of tree votes (RF uncertainty).
         """
         fp = smiles_to_fp(smiles)
         if fp is None:
             return None
-        probs = self.rf.predict_proba(fp[None], n_tasks=len(ACTIVITY_TASKS))[0]
-        return {t['key']: float(probs[i]) for i, t in enumerate(ACTIVITY_TASKS)}
+        mean, std = self.rf.predict_proba_with_std(fp[None], n_tasks=len(ACTIVITY_TASKS))
+        return {
+            t['key']: {'prob': float(mean[0, i]), 'std': float(std[0, i])}
+            for i, t in enumerate(ACTIVITY_TASKS)
+        }
 
     def save(self, path: str) -> None:
         with open(path, 'wb') as f:

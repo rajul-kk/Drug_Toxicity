@@ -9,7 +9,7 @@ import { fetchBrowse } from './browse.js';
 import { historyRender } from './history.js';
 import { renderChart, renderTable, runPredict, initDsFilterChips, toggleDsFilter } from './predict.js';
 import { fetchSimilar, renderSimilarResults } from './similar.js';
-import { setActivityAvailable } from './activity.js';
+import { setActivityAvailable, prefillActivitySmiles } from './activity.js';
 
 // ── view switching ─────────────────────────────
 export function showView(name, btn) {
@@ -19,9 +19,13 @@ export function showView(name, btn) {
   if (btn) btn.classList.add('active');
   document.body.classList.toggle('landing-mode', name === 'home');
   document.body.classList.toggle('app-mode', name !== 'home');
-  document.getElementById('nav-query-bar').style.display = name === 'home' ? 'none' : '';
+  document.getElementById('nav-query-bar').style.display = (name === 'home' || name === 'activity') ? 'none' : '';
   const mt = document.getElementById('model-toggle');
   if (mt) mt.style.display = (name === 'predict' && APP.models && APP.models.length > 1) ? '' : 'none';
+  if (name === 'activity') {
+    const lastSmiles = document.getElementById('smiles-inp')?.value.trim();
+    if (lastSmiles) prefillActivitySmiles(lastSmiles);
+  }
   if (name === 'home') syncHashToUrl('');
   if (name === 'browse' && APP.taskNames) fetchBrowse();
 }

@@ -54,6 +54,17 @@ class FPEnsemble:
                 probs[:, t] = rf.predict_proba(X)[:, 1]
         return probs
 
+    def predict_proba_with_std(self, X: np.ndarray, n_tasks: int):
+        """Returns (mean, std) each (N, n_tasks). std = tree-vote disagreement."""
+        mean = np.full((X.shape[0], n_tasks), 0.5, dtype=np.float32)
+        std  = np.zeros((X.shape[0], n_tasks), dtype=np.float32)
+        for t, rf in self.models.items():
+            if t < n_tasks:
+                tree_preds = np.array([e.predict_proba(X)[:, 1] for e in rf.estimators_], dtype=np.float32)
+                mean[:, t] = tree_preds.mean(axis=0)
+                std[:, t]  = tree_preds.std(axis=0)
+        return mean, std
+
     def save(self, path: str) -> None:
         with open(path, 'wb') as f:
             pickle.dump(self, f)
