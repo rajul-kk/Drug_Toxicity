@@ -11,6 +11,7 @@ import json
 import os
 import sys
 
+import glob as _glob
 import numpy as np
 import torch
 import yaml
@@ -19,10 +20,22 @@ from evaluate import collect_predictions, load_test_dataset
 from src.models import build_and_load_ensemble
 
 
+def _find_model_dir(arch: str) -> str | None:
+    """Match app.py's _find_latest_checkpoint_dir: prefer newest timestamped dir."""
+    candidates = sorted(
+        d for d in _glob.glob(os.path.join('checkpoints', f'{arch}_*'))
+        if os.path.isdir(d)
+    )
+    if candidates:
+        return candidates[-1]
+    flat = os.path.join('checkpoints', arch)
+    return flat if os.path.isdir(flat) else None
+
+
 def precompute(arch: str, config: dict) -> None:
-    model_dir = os.path.join('checkpoints', arch)
-    if not os.path.exists(os.path.join(model_dir, 'model_0.pth')):
-        print(f'[{arch}] no weights found at {model_dir} — skipping')
+    model_dir = _find_model_dir(arch)
+    if model_dir is None or not os.path.exists(os.path.join(model_dir, 'model_0.pth')):
+        print(f'[{arch}] no weights found — skipping')
         return
 
     device = torch.device('cpu')
@@ -48,7 +61,7 @@ def precompute(arch: str, config: dict) -> None:
     json.dump(smiles_list, open(os.path.join(model_dir, 'test_smiles.json'), 'w'))
     json.dump(source_list, open(os.path.join(model_dir, 'test_sources.json'), 'w'))
 
-    print(f'[{arch}] saved {len(smiles_list)} molecules → {model_dir}/')
+    print(f'[{arch}] saved {len(smiles_list)} molecules -> {model_dir}/')
 
 
 if __name__ == '__main__':
