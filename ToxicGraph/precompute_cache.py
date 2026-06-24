@@ -21,15 +21,15 @@ from src.models import build_and_load_ensemble
 
 
 def _find_model_dir(arch: str) -> str | None:
-    """Match app.py's _find_latest_checkpoint_dir: prefer newest timestamped dir."""
+    """Match app.py's _find_latest_checkpoint_dir: only dirs that contain model_0.pth."""
     candidates = sorted(
         d for d in _glob.glob(os.path.join('checkpoints', f'{arch}_*'))
-        if os.path.isdir(d)
+        if os.path.isdir(d) and os.path.exists(os.path.join(d, 'model_0.pth'))
     )
     if candidates:
         return candidates[-1]
     flat = os.path.join('checkpoints', arch)
-    return flat if os.path.isdir(flat) else None
+    return flat if os.path.exists(os.path.join(flat, 'model_0.pth')) else None
 
 
 def precompute(arch: str, config: dict) -> None:
