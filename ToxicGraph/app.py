@@ -22,6 +22,7 @@ log = logging.getLogger('toxicgraph')
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -217,13 +218,24 @@ limiter = Limiter(
 app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv('CORS_ORIGINS', '*').split(','),
     allow_methods=['GET', 'POST'],
     allow_headers=['*'],
 )
-app.mount('/static', StaticFiles(directory='web/static'), name='static')
+
+class _VersionedStaticFiles(StaticFiles):
+    """Serve versioned (?v=N) assets with long-lived immutable cache headers."""
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        qs = scope.get('query_string', b'').decode()
+        if 'v=' in qs and response.status_code == 200:
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        return response
+
+app.mount('/static', _VersionedStaticFiles(directory='web/static'), name='static')
 templates = Jinja2Templates(directory='web/templates')
 
 
