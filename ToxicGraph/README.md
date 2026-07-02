@@ -31,9 +31,9 @@ Multi-dataset molecular safety prediction — GNN/DMPNN ensemble across 49 tasks
 Both models:
 - Ensemble of 2 independently-seeded models, predictions averaged
 - Post-hoc temperature scaling calibration fitted on val set
-- MC Dropout uncertainty: 30 stochastic forward passes at inference → mean ± std per task
+- MC Dropout uncertainty: 20 stochastic forward passes at inference → mean ± std per task
 
-**Activity model (BBBP / HIV)** — Random Forest on Morgan ECFP4 (2048-bit) + MACCS (167-bit) fingerprints.
+**Activity model (BBBP / HIV)** — Random Forest on Morgan ECFP4 (512-bit) + MACCS (167-bit) fingerprints (679-dim total).
 
 ---
 
@@ -170,6 +170,8 @@ ToxicGraph/
 │   ├── dataset.py          # ToxicDataset (multi-dataset InMemoryDataset)
 │   ├── splitter.py         # Scaffold-based train/val/test split
 │   ├── calibration.py      # Temperature scaling, MC Dropout, ECE, Brier
+│   ├── fp_model.py         # Random Forest wrapper with per-tree uncertainty
+│   ├── activity_model.py   # RF activity model loader for BBBP/HIV
 │   └── utils.py            # Fingerprint utilities
 └── web/
     ├── templates/index.html
@@ -182,6 +184,7 @@ ToxicGraph/
         ├── main.js         # Entry point, window bindings, error boundary
         ├── app.js          # Boot, routing, model selection
         ├── predict.js      # Single-molecule predict view + chart
+        ├── activity.js     # RF activity page (BBBP/HIV gauges + Plotly chart)
         ├── browse.js       # Test-set browse and search
         ├── multi.js        # Batch prediction + CSV upload
         ├── similar.js      # Similarity search
@@ -197,4 +200,4 @@ ToxicGraph/
 python -m pytest tests/ -v
 ```
 
-26 tests covering health, predict, browse, search, properties, `/api/similar`, SMILES validation, inference cache, output shape, and probability bounds.
+60 tests covering health, predict, browse, search, properties, `/api/similar`, SMILES validation, inference cache, output shape, and probability bounds.
